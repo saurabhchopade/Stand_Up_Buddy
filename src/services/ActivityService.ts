@@ -3,7 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodaySummary, recordActivityEvent, recordNotificationEvent } from '../database/db';
 import { useAppStore } from '../store/useAppStore';
 import { NotificationActionKey, SuppressionReason } from '../types';
-import { REPEATED_ALERT_INTERVAL_MINUTES, STORAGE_KEYS } from '../utils/constants';
+import {
+  QUALIFIED_WALK_SECONDS,
+  REPEATED_ALERT_INTERVAL_MINUTES,
+  STORAGE_KEYS,
+  WALKING_PAUSE_GRACE_SECONDS,
+} from '../utils/constants';
 import { isInTimeRange, minutesBetween } from '../utils/timeUtils';
 import { startAlarmLoop, stopAlarmLoop } from './AlarmService';
 import { isCalendarBusy } from './CalendarService';
@@ -11,6 +16,10 @@ import { isAtOfficeLocation } from './LocationService';
 import { sendInactivityNotification } from './NotificationService';
 
 type PersistedRuntime = {
+  pausedCountdownRemainingMs: number | null;
+  preSnoozeRemainingMs: number | null;
+  walkingPauseSince: number | null;
+  walkingSince: number | null;
   stillSince: number | null;
   lastMovementAt: number | null;
   countdownStartedAt: number | null;
@@ -22,6 +31,10 @@ let evaluationInFlight = false;
 
 const persistRuntime = async () => {
   const {
+    pausedCountdownRemainingMs,
+    preSnoozeRemainingMs,
+    walkingPauseSince,
+    walkingSince,
     stillSince,
     lastMovementAt,
     countdownStartedAt,
@@ -29,6 +42,10 @@ const persistRuntime = async () => {
     lastAlertAt,
   } = useAppStore.getState();
   const payload: PersistedRuntime = {
+    pausedCountdownRemainingMs,
+    preSnoozeRemainingMs,
+    walkingPauseSince,
+    walkingSince,
     stillSince,
     lastMovementAt,
     countdownStartedAt,
@@ -43,6 +60,47 @@ const clearPersistedRuntime = async () => {
   await AsyncStorage.removeItem(STORAGE_KEYS.runtime);
 };
 
+const completeQualifiedWalk = async (timestamp: number = Date.now()) => {
+  const state = useAppStore.getState();
+
+  if (!state.walkingSince) {
+    return false;
+  }
+
+  if (timestamp - state.walkingSince < QUALIFIED_WALK_SECONDS * 1000) {
+    return false;
+  }
+
+  await stopAlarmLoop();
+
+  if (state.countdownStartedAt) {
+    const durationMinutes = minutesBetween(
+      state.stillSince ?? state.countdownStartedAt,
+      timestamp
+    );
+    await recordActivityEvent('BREAK', durationMinutes, 'WALKING', {
+      source: 'sensor',
+      qualifiedWalkSeconds: QUALIFIED_WALK_SECONDS,
+    });
+    state.recordActiveBreak();
+  }
+
+  state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    walkingPauseSince: null,
+    walkingSince: null,
+    stillSince: null,
+    countdownStartedAt: null,
+    countdownTargetAt: null,
+    lastMovementAt: timestamp,
+    lastSuppressionReason: null,
+    snoozeUntil: null,
+  });
+  await clearPersistedRuntime();
+  return true;
+};
+
 const scheduleFromNow = async (startAt: number = Date.now()) => {
   const { settings, patchRuntime, stillSince } = useAppStore.getState();
 
@@ -50,6 +108,8 @@ const scheduleFromNow = async (startAt: number = Date.now()) => {
     stillSince: stillSince ?? startAt,
     countdownStartedAt: startAt,
     countdownTargetAt: startAt + settings.alertIntervalMinutes * 60 * 1000,
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
     lastSuppressionReason: null,
   });
 
@@ -103,6 +163,10 @@ export const hydratePersistedRuntime = async () => {
     const parsed = JSON.parse(raw) as PersistedRuntime;
 
     useAppStore.getState().patchRuntime({
+      pausedCountdownRemainingMs: parsed.pausedCountdownRemainingMs,
+      preSnoozeRemainingMs: parsed.preSnoozeRemainingMs,
+      walkingPauseSince: parsed.walkingPauseSince,
+      walkingSince: parsed.walkingSince,
       stillSince: parsed.stillSince,
       lastMovementAt: parsed.lastMovementAt,
       countdownStartedAt: parsed.countdownStartedAt,
@@ -118,7 +182,7 @@ export const hydratePersistedRuntime = async () => {
 };
 
 export const handleActivityChange = async (
-  nextState: 'STILL' | 'WALKING' | 'RUNNING' | 'IN_VEHICLE',
+  nextState: 'STILL' | 'WALKING' | 'IN_VEHICLE',
   confidence: number
 ) => {
   const state = useAppStore.getState();
@@ -126,27 +190,71 @@ export const handleActivityChange = async (
 
   state.setMotionState(nextState, confidence, timestamp);
 
-  if (nextState !== 'STILL') {
-    await stopAlarmLoop();
+  if (nextState === 'WALKING') {
+    if (!state.walkingSince) {
+      await stopAlarmLoop();
 
-    if (state.countdownStartedAt) {
-      const durationMinutes = minutesBetween(state.stillSince ?? state.countdownStartedAt, timestamp);
-      await recordActivityEvent('BREAK', durationMinutes, nextState, {
-        source: 'sensor',
+      const pausedRemainingMs =
+        state.pausedCountdownRemainingMs ??
+        (state.countdownTargetAt
+          ? Math.max(0, state.countdownTargetAt - timestamp)
+          : null);
+
+      state.patchRuntime({
+        pausedCountdownRemainingMs: pausedRemainingMs,
+        preSnoozeRemainingMs: null,
+        walkingPauseSince: null,
+        walkingSince: timestamp,
+        countdownTargetAt: null,
+        lastSuppressionReason: null,
       });
-      state.recordActiveBreak();
+      await persistRuntime();
+      return;
+    }
+
+    if (state.walkingPauseSince) {
+      state.patchRuntime({
+        walkingPauseSince: null,
+      });
+    }
+
+    await completeQualifiedWalk(timestamp);
+    if (useAppStore.getState().walkingSince) {
+      await persistRuntime();
+    }
+    return;
+  }
+
+  if (state.walkingSince) {
+    if (nextState === 'STILL') {
+      if (!state.walkingPauseSince) {
+        state.patchRuntime({
+          walkingPauseSince: timestamp,
+          lastSuppressionReason: null,
+        });
+        await persistRuntime();
+      }
+      return;
+    }
+
+    if (state.pausedCountdownRemainingMs !== null) {
+      state.patchRuntime({
+        pausedCountdownRemainingMs: null,
+        preSnoozeRemainingMs: null,
+        walkingPauseSince: null,
+        walkingSince: null,
+        countdownTargetAt: timestamp + state.pausedCountdownRemainingMs,
+        lastSuppressionReason: null,
+      });
+      await persistRuntime();
+      return;
     }
 
     state.patchRuntime({
-      stillSince: null,
-      countdownStartedAt: null,
-      countdownTargetAt: null,
-      lastMovementAt: timestamp,
-      lastSuppressionReason: null,
-      snoozeUntil: null,
+      walkingPauseSince: null,
+      walkingSince: null,
     });
-    await clearPersistedRuntime();
-    return;
+    await persistRuntime();
   }
 
   if (nextState === 'STILL' && !state.countdownStartedAt) {
@@ -181,6 +289,10 @@ export const manualResetTimer = async () => {
   }
 
   state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    walkingPauseSince: null,
+    walkingSince: null,
     stillSince: now,
     countdownStartedAt: now,
     countdownTargetAt: now + state.settings.alertIntervalMinutes * 60 * 1000,
@@ -193,16 +305,31 @@ export const manualResetTimer = async () => {
 
 export const enableMeetingModeForHour = async () => {
   await stopAlarmLoop();
+  useAppStore.getState().patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    walkingPauseSince: null,
+    walkingSince: null,
+  });
   useAppStore.getState().setManualMeetingMode(true, Date.now() + 60 * 60 * 1000);
   await recordNotificationEvent('MEETING_MODE_ENABLED');
 };
 
-export const snoozeForMinutes = async (minutes: number = 10) => {
+const applySnoozeForMinutes = async (minutes: number = 10) => {
+  const state = useAppStore.getState();
   const now = Date.now();
   const targetAt = now + minutes * 60 * 1000;
+  const preSnoozeRemainingMs =
+    state.pausedCountdownRemainingMs ??
+    (state.countdownTargetAt ? Math.max(0, state.countdownTargetAt - now) : null);
+
   await stopAlarmLoop();
 
-  useAppStore.getState().patchRuntime({
+  state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs,
+    walkingPauseSince: null,
+    walkingSince: null,
     countdownStartedAt: now,
     countdownTargetAt: targetAt,
     snoozeUntil: targetAt,
@@ -212,6 +339,43 @@ export const snoozeForMinutes = async (minutes: number = 10) => {
   await persistRuntime();
 };
 
+export const cancelSnooze = async () => {
+  const state = useAppStore.getState();
+  const now = Date.now();
+  const restoredRemainingMs =
+    state.preSnoozeRemainingMs ??
+    state.settings.alertIntervalMinutes * 60 * 1000;
+
+  state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    walkingPauseSince: null,
+    walkingSince: null,
+    countdownStartedAt: now,
+    countdownTargetAt: now + restoredRemainingMs,
+    snoozeUntil: null,
+    lastSuppressionReason: null,
+  });
+
+  await persistRuntime();
+};
+
+export const toggleSnoozeForMinutes = async (minutes: number = 10) => {
+  const { snoozeUntil } = useAppStore.getState();
+  const now = Date.now();
+
+  if (snoozeUntil && snoozeUntil > now) {
+    await cancelSnooze();
+    return;
+  }
+
+  await applySnoozeForMinutes(minutes);
+};
+
+export const snoozeForMinutes = async (minutes: number = 10) => {
+  await applySnoozeForMinutes(minutes);
+};
+
 export const acknowledgeCurrentAlert = async () => {
   const state = useAppStore.getState();
   const now = Date.now();
@@ -219,6 +383,10 @@ export const acknowledgeCurrentAlert = async () => {
   await stopAlarmLoop();
 
   state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    walkingPauseSince: null,
+    walkingSince: null,
     countdownStartedAt: now,
     countdownTargetAt: now + state.settings.alertIntervalMinutes * 60 * 1000,
     lastSuppressionReason: null,
@@ -230,6 +398,35 @@ export const acknowledgeCurrentAlert = async () => {
 
 export const evaluateInactivity = async () => {
   const state = useAppStore.getState();
+
+  if (state.currentActivityState === 'WALKING') {
+    const completedWalk = await completeQualifiedWalk();
+    if (completedWalk) {
+      return;
+    }
+  }
+
+  if (
+    state.walkingSince &&
+    state.walkingPauseSince &&
+    state.pausedCountdownRemainingMs !== null
+  ) {
+    const now = Date.now();
+
+    if (now - state.walkingPauseSince >= WALKING_PAUSE_GRACE_SECONDS * 1000) {
+      state.patchRuntime({
+        pausedCountdownRemainingMs: null,
+        preSnoozeRemainingMs: null,
+        walkingPauseSince: null,
+        walkingSince: null,
+        countdownTargetAt: now + state.pausedCountdownRemainingMs,
+        lastSuppressionReason: null,
+      });
+      await persistRuntime();
+    }
+
+    return;
+  }
 
   if (evaluationInFlight || !state.countdownTargetAt) {
     return;
@@ -248,6 +445,8 @@ export const evaluateInactivity = async () => {
 
     if (suppressionReason) {
       state.patchRuntime({
+        pausedCountdownRemainingMs: null,
+        walkingPauseSince: null,
         countdownStartedAt: now,
         countdownTargetAt:
           now + state.settings.alertIntervalMinutes * 60 * 1000,
@@ -270,6 +469,9 @@ export const evaluateInactivity = async () => {
     });
     state.recordAlertTriggered(durationMinutes);
     state.patchRuntime({
+      pausedCountdownRemainingMs: null,
+      preSnoozeRemainingMs: null,
+      walkingPauseSince: null,
       countdownStartedAt: now,
       countdownTargetAt: now + REPEATED_ALERT_INTERVAL_MINUTES * 60 * 1000,
       lastSuppressionReason: null,

@@ -27,6 +27,10 @@ const baseRuntimeState: AppRuntimeState = {
   currentActivityState: DEFAULT_ACTIVITY_STATE,
   latestConfidence: 0,
   alarmActive: false,
+  pausedCountdownRemainingMs: null,
+  preSnoozeRemainingMs: null,
+  walkingPauseSince: null,
+  walkingSince: null,
   stillSince: null,
   lastMovementAt: Date.now(),
   countdownStartedAt: null,
@@ -35,7 +39,7 @@ const baseRuntimeState: AppRuntimeState = {
   lastSuppressionReason: null,
   manualMeetingModeUntil: null,
   snoozeUntil: null,
-  nightModeOverride: false,
+  nightModeOverride: true,
 };
 
 interface AppStore extends AppRuntimeState {
@@ -77,11 +81,13 @@ export const useAppStore = create<AppStore>()(
           currentActivityState: activityState,
           latestConfidence: confidence,
           stillSince:
-            activityState === 'STILL' || activityState === 'IN_VEHICLE'
+            activityState === 'STILL'
               ? state.stillSince ?? timestamp
+              : state.walkingSince || state.pausedCountdownRemainingMs !== null
+                ? state.stillSince
               : null,
           lastMovementAt:
-            activityState === 'WALKING' || activityState === 'RUNNING'
+            activityState === 'WALKING'
               ? timestamp
               : state.lastMovementAt,
         })),
@@ -175,6 +181,21 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: 'sitalert.store',
+      version: 1,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState as AppStore;
+        }
+
+        const state = persistedState as Partial<AppStore>;
+
+        return {
+          ...state,
+          snoozeUntil: null,
+          preSnoozeRemainingMs: null,
+          nightModeOverride: true,
+        } as AppStore;
+      },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         analyticsRange: state.analyticsRange,
@@ -185,6 +206,10 @@ export const useAppStore = create<AppStore>()(
         manualMeetingModeUntil: state.manualMeetingModeUntil,
         snoozeUntil: state.snoozeUntil,
         nightModeOverride: state.nightModeOverride,
+        pausedCountdownRemainingMs: state.pausedCountdownRemainingMs,
+        preSnoozeRemainingMs: state.preSnoozeRemainingMs,
+        walkingPauseSince: state.walkingPauseSince,
+        walkingSince: state.walkingSince,
       }),
     }
   )

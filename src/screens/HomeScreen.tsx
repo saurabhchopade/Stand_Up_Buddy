@@ -14,6 +14,7 @@ import ToggleCard from '../components/ToggleCard';
 import { useAppStore } from '../store/useAppStore';
 import {
   acknowledgeCurrentAlert,
+  toggleSnoozeForMinutes,
   enableMeetingModeForHour,
   manualResetTimer,
   snoozeForMinutes,
@@ -34,6 +35,10 @@ export default function HomeScreen() {
   const latestConfidence = useAppStore((state) => state.latestConfidence);
   const lastMovementAt = useAppStore((state) => state.lastMovementAt);
   const countdownTargetAt = useAppStore((state) => state.countdownTargetAt);
+  const pausedCountdownRemainingMs = useAppStore(
+    (state) => state.pausedCountdownRemainingMs
+  );
+  const walkingSince = useAppStore((state) => state.walkingSince);
   const alarmActive = useAppStore((state) => state.alarmActive);
   const manualMeetingModeUntil = useAppStore((state) => state.manualMeetingModeUntil);
   const snoozeUntil = useAppStore((state) => state.snoozeUntil);
@@ -56,8 +61,14 @@ export default function HomeScreen() {
   }, []);
 
   const totalSeconds = settings.alertIntervalMinutes * 60;
-  const remainingSeconds = secondsRemaining(countdownTargetAt, now);
-  const ringProgress = countdownTargetAt ? remainingSeconds / totalSeconds : 1;
+  const timerIsPaused =
+    walkingSince !== null && pausedCountdownRemainingMs !== null;
+  const remainingSeconds =
+    timerIsPaused
+      ? Math.max(0, Math.ceil(pausedCountdownRemainingMs / 1000))
+      : secondsRemaining(countdownTargetAt, now);
+  const ringProgress =
+    countdownTargetAt || timerIsPaused ? remainingSeconds / totalSeconds : 1;
   const meetingModeActive =
     Boolean(manualMeetingModeUntil) && Number(manualMeetingModeUntil) > now;
   const suppressionMessage = lastSuppressionReason
@@ -105,6 +116,14 @@ export default function HomeScreen() {
         lastMovementAt={lastMovementAt}
         confidence={latestConfidence}
       />
+
+      {timerIsPaused ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>
+            Timer paused while walking. Keep walking for 30 seconds to reset it.
+          </Text>
+        </View>
+      ) : null}
 
       {alarmActive ? (
         <View style={styles.alarmPanel}>
@@ -157,10 +176,14 @@ export default function HomeScreen() {
         <ToggleCard
           icon="notifications-off"
           label="Snooze 10"
-          caption="Delay the next reminder"
+          caption={
+            Boolean(snoozeUntil) && Number(snoozeUntil) > now
+              ? 'Tap again to cancel snooze'
+              : 'Delay the next reminder'
+          }
           active={Boolean(snoozeUntil) && Number(snoozeUntil) > now}
           onPress={() => {
-            void snoozeForMinutes(10);
+            void toggleSnoozeForMinutes(10);
           }}
         />
         <ToggleCard

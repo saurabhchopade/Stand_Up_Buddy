@@ -56,7 +56,7 @@ export const useAccelerometer = (): AccelerometerState => {
         samplesRef.current = pushRollingSample(samplesRef.current, sample);
         const result = classifyActivity(samplesRef.current, currentStateRef.current);
         const requiredStreak =
-          result.nextState === 'WALKING' || result.nextState === 'RUNNING'
+          result.nextState === 'WALKING'
             ? Math.max(4, Math.floor(TRANSITION_STREAK_REQUIRED / 3))
             : result.nextState === 'IN_VEHICLE'
               ? Math.max(5, Math.floor(TRANSITION_STREAK_REQUIRED / 2))

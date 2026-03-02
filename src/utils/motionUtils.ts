@@ -90,8 +90,8 @@ export const classifyActivity = (
 
   if (insight.peakNet > 1.1 || insight.averageNet > 0.7) {
     return {
-      nextState: 'RUNNING',
-      confidence: 0.88,
+      nextState: 'WALKING',
+      confidence: 0.9,
       insight,
     };
   }

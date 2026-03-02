@@ -10,6 +10,8 @@ export const NOTIFICATION_CHANNEL_ID = 'sitalert_reminders_v3';
 export const NOTIFICATION_CATEGORY_ID = 'sitalert_actions';
 export const BACKGROUND_TASK_NAME = 'SITALERT_BACKGROUND_MONITOR';
 export const REPEATED_ALERT_INTERVAL_MINUTES = 1;
+export const QUALIFIED_WALK_SECONDS = 30;
+export const WALKING_PAUSE_GRACE_SECONDS = 10;
 
 export const STORAGE_KEYS = {
   runtime: 'sitalert.runtime',

@@ -13,7 +13,6 @@ type StatusCardProps = {
 const stateColorMap: Record<ActivityState, string> = {
   STILL: '#B64D2F',
   WALKING: '#2F8A56',
-  RUNNING: '#355CC9',
   IN_VEHICLE: '#9A6B18',
 };
 
