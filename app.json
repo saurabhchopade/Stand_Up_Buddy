@@ -1,47 +1,70 @@
 {
   "expo": {
-    "name": "Stand_Up_Buddy",
-    "slug": "Stand_Up_Buddy",
+    "name": "SitAlert",
+    "slug": "sitalert",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "standupbuddy",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "scheme": "sitalert",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sitalert.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SitAlert uses your location to suppress reminders at saved home or office locations.",
+        "NSCalendarsUsageDescription": "SitAlert checks busy events to suppress inactivity reminders during meetings."
+      }
     },
     "android": {
+      "package": "com.sitalert.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#F6EFE3",
+        "foregroundImage": "./assets/icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "VIBRATE"
+      ]
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#D96B2B",
+          "sounds": [
+            "./assets/sounds/alert.mp3"
+          ]
+        }
+      ],
+      "expo-location",
+      "expo-calendar",
+      "expo-sqlite",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/splash.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#F6EFE3"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset",
+      "expo-router"
     ],
     "experiments": {
-      "typedRoutes": true,
       "reactCompiler": true
     }
   }
