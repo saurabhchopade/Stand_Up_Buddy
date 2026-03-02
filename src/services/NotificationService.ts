@@ -11,6 +11,7 @@ type NotificationActionHandler = (
 ) => Promise<void> | void;
 
 const ACTION_IDS = {
+  stopAlarm: 'SITALERT_STOP_ALARM',
   startWalk: 'SITALERT_START_WALK',
   snooze: 'SITALERT_SNOOZE',
   inMeeting: 'SITALERT_IN_MEETING',
@@ -23,6 +24,8 @@ const isExpoGo =
 
 const mapAction = (actionIdentifier: string): NotificationActionKey => {
   switch (actionIdentifier) {
+    case ACTION_IDS.stopAlarm:
+      return 'STOP_ALARM';
     case ACTION_IDS.startWalk:
       return 'START_WALK';
     case ACTION_IDS.snooze:
@@ -76,6 +79,13 @@ export const initializeNotifications = async (onAction: NotificationActionHandle
   }
 
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
+    {
+      identifier: ACTION_IDS.stopAlarm,
+      buttonTitle: 'OK',
+      options: {
+        opensAppToForeground: true,
+      },
+    },
     {
       identifier: ACTION_IDS.startWalk,
       buttonTitle: 'Start Walk',
@@ -137,6 +147,7 @@ export const sendInactivityNotification = async (minutesInactive: number) => {
       categoryIdentifier: NOTIFICATION_CATEGORY_ID,
       data: {
         screen: 'Home',
+        urgent: true,
       },
     },
     trigger: null,

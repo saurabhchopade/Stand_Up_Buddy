@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { NotificationActionKey, SuppressionReason } from '../types';
 import { REPEATED_ALERT_INTERVAL_MINUTES, STORAGE_KEYS } from '../utils/constants';
 import { isInTimeRange, minutesBetween } from '../utils/timeUtils';
+import { startAlarmLoop, stopAlarmLoop } from './AlarmService';
 import { isCalendarBusy } from './CalendarService';
 import { isAtOfficeLocation } from './LocationService';
 import { sendInactivityNotification } from './NotificationService';
@@ -126,6 +127,8 @@ export const handleActivityChange = async (
   state.setMotionState(nextState, confidence, timestamp);
 
   if (nextState !== 'STILL') {
+    await stopAlarmLoop();
+
     if (state.countdownStartedAt) {
       const durationMinutes = minutesBetween(state.stillSince ?? state.countdownStartedAt, timestamp);
       await recordActivityEvent('BREAK', durationMinutes, nextState, {
@@ -167,6 +170,7 @@ export const recalculateCountdown = async () => {
 export const manualResetTimer = async () => {
   const state = useAppStore.getState();
   const now = Date.now();
+  await stopAlarmLoop();
 
   if (state.countdownStartedAt) {
     const durationMinutes = minutesBetween(state.stillSince ?? state.countdownStartedAt, now);
@@ -188,6 +192,7 @@ export const manualResetTimer = async () => {
 };
 
 export const enableMeetingModeForHour = async () => {
+  await stopAlarmLoop();
   useAppStore.getState().setManualMeetingMode(true, Date.now() + 60 * 60 * 1000);
   await recordNotificationEvent('MEETING_MODE_ENABLED');
 };
@@ -195,12 +200,29 @@ export const enableMeetingModeForHour = async () => {
 export const snoozeForMinutes = async (minutes: number = 10) => {
   const now = Date.now();
   const targetAt = now + minutes * 60 * 1000;
+  await stopAlarmLoop();
 
   useAppStore.getState().patchRuntime({
     countdownStartedAt: now,
     countdownTargetAt: targetAt,
     snoozeUntil: targetAt,
     lastSuppressionReason: 'SNOOZE_ACTIVE',
+  });
+
+  await persistRuntime();
+};
+
+export const acknowledgeCurrentAlert = async () => {
+  const state = useAppStore.getState();
+  const now = Date.now();
+
+  await stopAlarmLoop();
+
+  state.patchRuntime({
+    countdownStartedAt: now,
+    countdownTargetAt: now + state.settings.alertIntervalMinutes * 60 * 1000,
+    lastSuppressionReason: null,
+    snoozeUntil: null,
   });
 
   await persistRuntime();
@@ -239,6 +261,7 @@ export const evaluateInactivity = async () => {
     }
 
     await sendInactivityNotification(durationMinutes);
+    await startAlarmLoop();
     await recordActivityEvent('ALERT_TRIGGERED', durationMinutes, state.currentActivityState, {
       durationMinutes,
     });
@@ -263,6 +286,10 @@ export const handleNotificationAction = async (
   notificationId?: string
 ) => {
   switch (action) {
+    case 'STOP_ALARM':
+      await recordNotificationEvent('STOP_ALARM', null, { notificationId });
+      await acknowledgeCurrentAlert();
+      return;
     case 'START_WALK':
       await recordNotificationEvent('START_WALK', null, { notificationId });
       await manualResetTimer();

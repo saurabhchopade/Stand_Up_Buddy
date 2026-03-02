@@ -13,6 +13,7 @@ import StatusCard from '../components/StatusCard';
 import ToggleCard from '../components/ToggleCard';
 import { useAppStore } from '../store/useAppStore';
 import {
+  acknowledgeCurrentAlert,
   enableMeetingModeForHour,
   manualResetTimer,
   snoozeForMinutes,
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const latestConfidence = useAppStore((state) => state.latestConfidence);
   const lastMovementAt = useAppStore((state) => state.lastMovementAt);
   const countdownTargetAt = useAppStore((state) => state.countdownTargetAt);
+  const alarmActive = useAppStore((state) => state.alarmActive);
   const manualMeetingModeUntil = useAppStore((state) => state.manualMeetingModeUntil);
   const snoozeUntil = useAppStore((state) => state.snoozeUntil);
   const nightModeOverride = useAppStore((state) => state.nightModeOverride);
@@ -103,6 +105,39 @@ export default function HomeScreen() {
         lastMovementAt={lastMovementAt}
         confidence={latestConfidence}
       />
+
+      {alarmActive ? (
+        <View style={styles.alarmPanel}>
+          <Text style={styles.alarmTitle}>Alarm Active</Text>
+          <Text style={styles.alarmCopy}>
+            Sound and vibration will continue until you move, tap OK, or snooze.
+          </Text>
+          <View style={styles.alarmActions}>
+            <Pressable
+              onPress={() => {
+                void acknowledgeCurrentAlert();
+              }}
+              style={({ pressed }) => [
+                styles.alarmButton,
+                styles.alarmButtonSecondary,
+                pressed && styles.alarmButtonPressed,
+              ]}>
+              <Text style={styles.alarmButtonSecondaryText}>OK</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                void snoozeForMinutes(10);
+              }}
+              style={({ pressed }) => [
+                styles.alarmButton,
+                styles.alarmButtonPrimary,
+                pressed && styles.alarmButtonPressed,
+              ]}>
+              <Text style={styles.alarmButtonPrimaryText}>Snooze 10</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.toggleGrid}>
         <ToggleCard
@@ -226,6 +261,49 @@ const styles = StyleSheet.create({
   bannerText: {
     color: '#67462B',
     fontWeight: '600',
+  },
+  alarmPanel: {
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#5A1515',
+    gap: 12,
+  },
+  alarmTitle: {
+    color: '#FFF4EE',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  alarmCopy: {
+    color: 'rgba(255, 244, 238, 0.84)',
+    lineHeight: 20,
+  },
+  alarmActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  alarmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alarmButtonPrimary: {
+    backgroundColor: '#D96B2B',
+  },
+  alarmButtonSecondary: {
+    backgroundColor: '#FFF4EE',
+  },
+  alarmButtonPressed: {
+    opacity: 0.9,
+  },
+  alarmButtonPrimaryText: {
+    color: '#FFF8EE',
+    fontWeight: '800',
+  },
+  alarmButtonSecondaryText: {
+    color: '#4B1B13',
+    fontWeight: '800',
   },
   summarySection: {
     gap: 12,

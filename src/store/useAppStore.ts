@@ -26,6 +26,7 @@ const freshSummary = (summary: DailySummary) =>
 const baseRuntimeState: AppRuntimeState = {
   currentActivityState: DEFAULT_ACTIVITY_STATE,
   latestConfidence: 0,
+  alarmActive: false,
   stillSince: null,
   lastMovementAt: Date.now(),
   countdownStartedAt: null,

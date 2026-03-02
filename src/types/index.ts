@@ -2,6 +2,7 @@ export type ActivityState = 'STILL' | 'WALKING' | 'RUNNING' | 'IN_VEHICLE';
 export type AnalyticsRange = 'TODAY' | 'WEEK' | 'MONTH';
 export type PermissionState = 'granted' | 'denied' | 'undetermined';
 export type NotificationActionKey =
+  | 'STOP_ALARM'
   | 'START_WALK'
   | 'SNOOZE'
   | 'IN_MEETING'
@@ -76,6 +77,7 @@ export interface DailySummary {
 export interface AppRuntimeState {
   currentActivityState: ActivityState;
   latestConfidence: number;
+  alarmActive: boolean;
   stillSince: number | null;
   lastMovementAt: number | null;
   countdownStartedAt: number | null;
