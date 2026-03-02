@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodaySummary, recordActivityEvent, recordNotificationEvent } from '../database/db';
 import { useAppStore } from '../store/useAppStore';
 import { NotificationActionKey, SuppressionReason } from '../types';
-import { STORAGE_KEYS } from '../utils/constants';
+import { REPEATED_ALERT_INTERVAL_MINUTES, STORAGE_KEYS } from '../utils/constants';
 import { isInTimeRange, minutesBetween } from '../utils/timeUtils';
 import { isCalendarBusy } from './CalendarService';
 import { isAtOfficeLocation } from './LocationService';
@@ -72,7 +72,10 @@ const resolveSuppressionReason = async (
     return 'CALENDAR_BUSY';
   }
 
-  if (isInTimeRange(referenceTime, state.settings.nightModeStart, state.settings.nightModeEnd)) {
+  if (
+    !state.nightModeOverride &&
+    isInTimeRange(referenceTime, state.settings.nightModeStart, state.settings.nightModeEnd)
+  ) {
     return 'NIGHT_RANGE';
   }
 
@@ -82,10 +85,6 @@ const resolveSuppressionReason = async (
 
   if (await isAtOfficeLocation()) {
     return 'AT_OFFICE';
-  }
-
-  if (state.nightModeOverride) {
-    return 'NIGHT_OVERRIDE';
   }
 
   return null;
@@ -126,7 +125,7 @@ export const handleActivityChange = async (
 
   state.setMotionState(nextState, confidence, timestamp);
 
-  if (nextState === 'WALKING' || nextState === 'RUNNING') {
+  if (nextState !== 'STILL') {
     if (state.countdownStartedAt) {
       const durationMinutes = minutesBetween(state.stillSince ?? state.countdownStartedAt, timestamp);
       await recordActivityEvent('BREAK', durationMinutes, nextState, {
@@ -147,7 +146,7 @@ export const handleActivityChange = async (
     return;
   }
 
-  if (!state.countdownStartedAt) {
+  if (nextState === 'STILL' && !state.countdownStartedAt) {
     await recordActivityEvent('COUNTDOWN_STARTED', 0, nextState, {
       source: 'sensor',
     });
@@ -228,7 +227,8 @@ export const evaluateInactivity = async () => {
     if (suppressionReason) {
       state.patchRuntime({
         countdownStartedAt: now,
-        countdownTargetAt: now + 10 * 60 * 1000,
+        countdownTargetAt:
+          now + state.settings.alertIntervalMinutes * 60 * 1000,
         lastSuppressionReason: suppressionReason,
       });
       await recordNotificationEvent('SUPPRESSED', suppressionReason, {
@@ -248,7 +248,7 @@ export const evaluateInactivity = async () => {
     state.recordAlertTriggered(durationMinutes);
     state.patchRuntime({
       countdownStartedAt: now,
-      countdownTargetAt: now + state.settings.alertIntervalMinutes * 60 * 1000,
+      countdownTargetAt: now + REPEATED_ALERT_INTERVAL_MINUTES * 60 * 1000,
       lastSuppressionReason: null,
       lastAlertAt: now,
     });

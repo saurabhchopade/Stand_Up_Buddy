@@ -13,7 +13,6 @@ export type SuppressionReason =
   | 'NIGHT_RANGE'
   | 'SYSTEM_DND'
   | 'AT_OFFICE'
-  | 'NIGHT_OVERRIDE'
   | 'SNOOZE_ACTIVE'
   | null;
 
@@ -51,6 +50,7 @@ export interface AppSettings {
   alertIntervalMinutes: number;
   walkGoalMinutes: number;
   waterReminderEnabled: boolean;
+  locationBasedSuppressionEnabled: boolean;
   meetingDetectionEnabled: boolean;
   nightModeStart: string;
   nightModeEnd: string;

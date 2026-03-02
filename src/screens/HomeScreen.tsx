@@ -25,7 +25,6 @@ const suppressionLabelMap = {
   NIGHT_RANGE: 'Night mode is suppressing reminders',
   SYSTEM_DND: 'Do Not Disturb suppression is active',
   AT_OFFICE: 'Office location suppression is active',
-  NIGHT_OVERRIDE: 'Manual night override is active',
   SNOOZE_ACTIVE: 'Snooze is delaying the next reminder',
 } as const;
 
@@ -131,8 +130,8 @@ export default function HomeScreen() {
         />
         <ToggleCard
           icon="moon"
-          label="Night Override"
-          caption="Manually silence reminders"
+          label="Disable Night Mode"
+          caption="Turn off night suppression"
           active={nightModeOverride}
           onPress={() => {
             setNightModeOverride(!nightModeOverride);

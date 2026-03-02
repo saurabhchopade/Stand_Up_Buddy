@@ -55,6 +55,12 @@ export const useAccelerometer = (): AccelerometerState => {
         const sample = toMotionSample(reading.x, reading.y, reading.z);
         samplesRef.current = pushRollingSample(samplesRef.current, sample);
         const result = classifyActivity(samplesRef.current, currentStateRef.current);
+        const requiredStreak =
+          result.nextState === 'WALKING' || result.nextState === 'RUNNING'
+            ? Math.max(4, Math.floor(TRANSITION_STREAK_REQUIRED / 3))
+            : result.nextState === 'IN_VEHICLE'
+              ? Math.max(5, Math.floor(TRANSITION_STREAK_REQUIRED / 2))
+              : TRANSITION_STREAK_REQUIRED;
 
         setInsight(result.insight);
         setConfidence(result.confidence);
@@ -72,7 +78,7 @@ export const useAccelerometer = (): AccelerometerState => {
           streakRef.current = 1;
         }
 
-        if (streakRef.current >= TRANSITION_STREAK_REQUIRED) {
+        if (streakRef.current >= requiredStreak) {
           currentStateRef.current = result.nextState;
           setActivityState(result.nextState);
           streakRef.current = 0;

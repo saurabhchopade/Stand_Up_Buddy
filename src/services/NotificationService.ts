@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Alert, Platform, Vibration } from 'react-native';
 import Constants from 'expo-constants';
 
 import { useAppStore } from '../store/useAppStore';
@@ -120,6 +120,11 @@ export const initializeNotifications = async (onAction: NotificationActionHandle
 
 export const sendInactivityNotification = async (minutesInactive: number) => {
   if (isExpoGo) {
+    Vibration.vibrate([0, 500, 200, 500]);
+    Alert.alert(
+      'Time to move',
+      `You have been still for ${minutesInactive} minutes. A short walk will reset the timer.`
+    );
     return null;
   }
 

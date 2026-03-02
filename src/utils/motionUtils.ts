@@ -53,7 +53,7 @@ export const analyzeWindow = (samples: MotionSample[]): MotionInsight => {
     const current = netValues[index] ?? 0;
     const next = netValues[index + 1] ?? 0;
 
-    if (current > previous && current > next && current > 0.85) {
+    if (current > previous && current > next && current > 0.25) {
       stepCount += 1;
     }
   }
@@ -88,7 +88,7 @@ export const classifyActivity = (
     };
   }
 
-  if (insight.peakNet > 2.5 || insight.averageNet > 1.7) {
+  if (insight.peakNet > 1.1 || insight.averageNet > 0.7) {
     return {
       nextState: 'RUNNING',
       confidence: 0.88,
@@ -96,7 +96,10 @@ export const classifyActivity = (
     };
   }
 
-  if (insight.stepCount >= 2 && insight.averageNet > 0.55) {
+  if (
+    insight.stepCount >= 1 &&
+    (insight.averageNet > 0.18 || insight.peakNet > 0.35)
+  ) {
     return {
       nextState: 'WALKING',
       confidence: 0.82,
@@ -105,9 +108,9 @@ export const classifyActivity = (
   }
 
   if (
-    insight.averageNet > 0.22 &&
-    insight.averageNet < 0.8 &&
-    insight.variance < 0.08
+    insight.averageNet > 0.08 &&
+    insight.averageNet < 0.4 &&
+    insight.variance < 0.035
   ) {
     return {
       nextState: 'IN_VEHICLE',

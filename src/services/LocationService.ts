@@ -86,9 +86,13 @@ export const saveManualLocation = (
 };
 
 export const isAtOfficeLocation = async () => {
-  const { locations, permissions } = useAppStore.getState();
+  const { locations, permissions, settings } = useAppStore.getState();
 
-  if (!locations.office || permissions.location !== 'granted') {
+  if (
+    !settings.locationBasedSuppressionEnabled ||
+    !locations.office ||
+    permissions.location !== 'granted'
+  ) {
     return false;
   }
 

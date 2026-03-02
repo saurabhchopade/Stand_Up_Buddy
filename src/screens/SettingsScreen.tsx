@@ -11,8 +11,8 @@ import {
 
 import { resetDatabase } from '../database/db';
 import { usePermissions } from '../hooks/usePermissions';
-import { saveCurrentLocation } from '../services/LocationService';
 import { manualResetTimer, recalculateCountdown } from '../services/ActivityService';
+import { saveCurrentLocation } from '../services/LocationService';
 import { useAppStore } from '../store/useAppStore';
 import { formatClockLabel } from '../utils/timeUtils';
 
@@ -77,7 +77,7 @@ export default function SettingsScreen() {
   const [savingLocation, setSavingLocation] = useState<'home' | 'office' | null>(null);
 
   const alertIntervalOptions = useMemo(
-    () => [5, 15, 20, 30, 40, 50, 60, 75, 90],
+    () => [1,3, 5, 15, 20, 30, 40, 50, 60, 75, 90],
     []
   );
   const walkGoalOptions = useMemo(
@@ -148,6 +148,22 @@ export default function SettingsScreen() {
         <Text style={styles.helper}>
           Current MVP saves your live GPS coordinates. Manual address geocoding can be layered on next.
         </Text>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.panelTitle}>Location-Based Suppression</Text>
+            <Text style={styles.helper}>
+              Turn off office-location suppression while keeping saved GPS pins.
+            </Text>
+          </View>
+          <Switch
+            value={settings.locationBasedSuppressionEnabled}
+            onValueChange={(value) =>
+              updateSettings({ locationBasedSuppressionEnabled: value })
+            }
+            trackColor={{ false: '#D5C5AF', true: '#D96B2B' }}
+            thumbColor="#FFF8EE"
+          />
+        </View>
         <Text style={styles.locationText}>{locationSummary('Home', locations.home)}</Text>
         <Pressable
           onPress={async () => {
