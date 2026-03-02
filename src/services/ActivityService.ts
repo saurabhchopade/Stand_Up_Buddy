@@ -6,6 +6,7 @@ import { NotificationActionKey, SuppressionReason } from '../types';
 import {
   QUALIFIED_WALK_SECONDS,
   REPEATED_ALERT_INTERVAL_MINUTES,
+  SNOOZE_DURATION_MINUTES,
   STORAGE_KEYS,
   WALKING_PAUSE_GRACE_SECONDS,
 } from '../utils/constants';
@@ -315,7 +316,7 @@ export const enableMeetingModeForHour = async () => {
   await recordNotificationEvent('MEETING_MODE_ENABLED');
 };
 
-const applySnoozeForMinutes = async (minutes: number = 10) => {
+const applySnoozeForMinutes = async (minutes: number = SNOOZE_DURATION_MINUTES) => {
   const state = useAppStore.getState();
   const now = Date.now();
   const targetAt = now + minutes * 60 * 1000;
@@ -360,7 +361,9 @@ export const cancelSnooze = async () => {
   await persistRuntime();
 };
 
-export const toggleSnoozeForMinutes = async (minutes: number = 10) => {
+export const toggleSnoozeForMinutes = async (
+  minutes: number = SNOOZE_DURATION_MINUTES
+) => {
   const { snoozeUntil } = useAppStore.getState();
   const now = Date.now();
 
@@ -372,7 +375,7 @@ export const toggleSnoozeForMinutes = async (minutes: number = 10) => {
   await applySnoozeForMinutes(minutes);
 };
 
-export const snoozeForMinutes = async (minutes: number = 10) => {
+export const snoozeForMinutes = async (minutes: number = SNOOZE_DURATION_MINUTES) => {
   await applySnoozeForMinutes(minutes);
 };
 
@@ -498,7 +501,7 @@ export const handleNotificationAction = async (
       return;
     case 'SNOOZE':
       await recordNotificationEvent('SNOOZE', null, { notificationId });
-      await snoozeForMinutes(10);
+      await snoozeForMinutes(SNOOZE_DURATION_MINUTES);
       return;
     case 'IN_MEETING':
       await recordNotificationEvent('IN_MEETING', null, { notificationId });

@@ -1,9 +1,15 @@
-import { Alert, Platform, Vibration } from 'react-native';
+import { Alert, AppState, Platform, Vibration } from 'react-native';
 import Constants from 'expo-constants';
+import * as TaskManager from 'expo-task-manager';
 
 import { useAppStore } from '../store/useAppStore';
 import { NotificationActionKey } from '../types';
-import { NOTIFICATION_CATEGORY_ID, NOTIFICATION_CHANNEL_ID } from '../utils/constants';
+import {
+  NOTIFICATION_ACTION_TASK_NAME,
+  NOTIFICATION_CATEGORY_ID,
+  NOTIFICATION_CHANNEL_ID,
+  SNOOZE_DURATION_MINUTES,
+} from '../utils/constants';
 
 type NotificationActionHandler = (
   action: NotificationActionKey,
@@ -16,6 +22,7 @@ const ACTION_IDS = {
   snooze: 'SITALERT_SNOOZE',
   inMeeting: 'SITALERT_IN_MEETING',
 } as const;
+const NOTIFICATION_VIBRATION_PATTERN = [0, 800, 250, 800] as const;
 
 let responseSubscription: { remove: () => void } | null = null;
 const isExpoGo =
@@ -38,6 +45,44 @@ const mapAction = (actionIdentifier: string): NotificationActionKey => {
       return 'OPEN_APP';
   }
 };
+
+type NotificationTaskPayload = {
+  actionIdentifier?: string;
+  notification?: {
+    request?: {
+      identifier?: string;
+    };
+  };
+};
+
+if (!isExpoGo && Platform.OS === 'android') {
+  if (!TaskManager.isTaskDefined(NOTIFICATION_ACTION_TASK_NAME)) {
+    TaskManager.defineTask(
+      NOTIFICATION_ACTION_TASK_NAME,
+      async ({ data, error }: TaskManager.TaskManagerTaskBody<unknown>) => {
+        if (error) {
+          return;
+        }
+
+        const payload = data as NotificationTaskPayload | undefined;
+        const actionIdentifier = payload?.actionIdentifier;
+
+        if (!actionIdentifier) {
+          return;
+        }
+
+        const action = mapAction(actionIdentifier);
+
+        if (action === 'OPEN_APP' || action === 'DISMISSED') {
+          return;
+        }
+
+        const { handleNotificationAction } = await import('./ActivityService');
+        await handleNotificationAction(action, payload?.notification?.request?.identifier);
+      }
+    );
+  }
+}
 
 export const requestNotificationPermission = async () => {
   if (isExpoGo) {
@@ -70,9 +115,22 @@ export const initializeNotifications = async (onAction: NotificationActionHandle
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
       name: 'Sit reminders',
-      importance: Notifications.AndroidImportance.HIGH,
+      description: 'High-priority inactivity reminders that stay visible on the lock screen.',
+      importance: Notifications.AndroidImportance.MAX,
+      bypassDnd: true,
       sound: 'alert.mp3',
-      vibrationPattern: [0, 500, 200, 500],
+      vibrationPattern: [...NOTIFICATION_VIBRATION_PATTERN],
+      enableVibrate: true,
+      enableLights: true,
+      lightColor: '#D96B2B',
+      audioAttributes: {
+        usage: Notifications.AndroidAudioUsage.ALARM,
+        contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+        flags: {
+          enforceAudibility: true,
+          requestHardwareAudioVideoSynchronization: false,
+        },
+      },
       lockscreenVisibility:
         Notifications.AndroidNotificationVisibility.PUBLIC,
     });
@@ -80,38 +138,35 @@ export const initializeNotifications = async (onAction: NotificationActionHandle
 
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY_ID, [
     {
-      identifier: ACTION_IDS.stopAlarm,
-      buttonTitle: 'OK',
-      options: {
-        opensAppToForeground: true,
-      },
-    },
-    {
       identifier: ACTION_IDS.startWalk,
-      buttonTitle: 'Start Walk',
-      options: {
-        opensAppToForeground: true,
-      },
-    },
-    {
-      identifier: ACTION_IDS.snooze,
-      buttonTitle: 'Snooze 10 min',
+      buttonTitle: 'Go for walk',
       options: {
         opensAppToForeground: false,
       },
     },
     {
-      identifier: ACTION_IDS.inMeeting,
-      buttonTitle: 'In a Meeting',
+      identifier: ACTION_IDS.snooze,
+      buttonTitle: `Snooze ${SNOOZE_DURATION_MINUTES} min`,
       options: {
         opensAppToForeground: false,
       },
     },
   ]);
 
+  if (Platform.OS === 'android') {
+    await Notifications.registerTaskAsync(NOTIFICATION_ACTION_TASK_NAME);
+  }
+
   responseSubscription?.remove();
   responseSubscription = Notifications.addNotificationResponseReceivedListener(
     (response) => {
+      const isDefaultAction =
+        response.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER;
+
+      if (!isDefaultAction && AppState.currentState !== 'active') {
+        return;
+      }
+
       void onAction(
         mapAction(response.actionIdentifier),
         response.notification.request.identifier
@@ -120,7 +175,10 @@ export const initializeNotifications = async (onAction: NotificationActionHandle
   );
 
   const initialResponse = await Notifications.getLastNotificationResponseAsync();
-  if (initialResponse) {
+  if (
+    initialResponse &&
+    initialResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER
+  ) {
     void onAction(
       mapAction(initialResponse.actionIdentifier),
       initialResponse.notification.request.identifier
@@ -144,12 +202,18 @@ export const sendInactivityNotification = async (minutesInactive: number) => {
       title: 'Time to move',
       body: `You have been still for ${minutesInactive} minutes. A short walk will reset the timer.`,
       sound: 'alert.mp3',
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      sticky: true,
+      autoDismiss: false,
+      vibrate: [...NOTIFICATION_VIBRATION_PATTERN],
       categoryIdentifier: NOTIFICATION_CATEGORY_ID,
       data: {
         screen: 'Home',
         urgent: true,
       },
     },
-    trigger: null,
+    trigger: {
+      channelId: NOTIFICATION_CHANNEL_ID,
+    },
   });
 };
