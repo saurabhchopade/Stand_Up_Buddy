@@ -29,6 +29,7 @@ const baseRuntimeState: AppRuntimeState = {
   alarmActive: false,
   pausedCountdownRemainingMs: null,
   preSnoozeRemainingMs: null,
+  pendingWalkConfirmationUntil: null,
   walkingPauseSince: null,
   walkingSince: null,
   stillSince: null,
@@ -193,6 +194,7 @@ export const useAppStore = create<AppStore>()(
           ...state,
           snoozeUntil: null,
           preSnoozeRemainingMs: null,
+          pendingWalkConfirmationUntil: null,
           nightModeOverride: true,
         } as AppStore;
       },
@@ -208,6 +210,7 @@ export const useAppStore = create<AppStore>()(
         nightModeOverride: state.nightModeOverride,
         pausedCountdownRemainingMs: state.pausedCountdownRemainingMs,
         preSnoozeRemainingMs: state.preSnoozeRemainingMs,
+        pendingWalkConfirmationUntil: state.pendingWalkConfirmationUntil,
         walkingPauseSince: state.walkingPauseSince,
         walkingSince: state.walkingSince,
       }),

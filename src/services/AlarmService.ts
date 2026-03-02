@@ -1,4 +1,4 @@
-import { Vibration } from 'react-native';
+import { NativeModules, Platform, Vibration } from 'react-native';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 import { useAppStore } from '../store/useAppStore';
@@ -7,6 +7,13 @@ const VIBRATION_PATTERN = [0, 800, 250, 800];
 
 let activeSound: Audio.Sound | null = null;
 let starting = false;
+const nativeAlarmModule = NativeModules.SitAlertAlarmModule as
+  | {
+      startAlarm: (title: string, body: string) => Promise<void>;
+      stopAlarm: () => Promise<void>;
+    }
+  | undefined;
+const supportsNativeAndroidAlarm = Platform.OS === 'android' && Boolean(nativeAlarmModule);
 
 const setAlarmActive = (active: boolean) => {
   useAppStore.getState().patchRuntime({
@@ -15,6 +22,15 @@ const setAlarmActive = (active: boolean) => {
 };
 
 export const startAlarmLoop = async () => {
+  if (supportsNativeAndroidAlarm && nativeAlarmModule) {
+    await nativeAlarmModule.startAlarm(
+      'Time to move',
+      'You have been still too long. Go for a walk or snooze the alert.'
+    );
+    setAlarmActive(true);
+    return;
+  }
+
   if (activeSound || starting) {
     setAlarmActive(true);
     return;
@@ -51,6 +67,14 @@ export const startAlarmLoop = async () => {
 };
 
 export const stopAlarmLoop = async () => {
+  if (supportsNativeAndroidAlarm && nativeAlarmModule) {
+    try {
+      await nativeAlarmModule.stopAlarm();
+    } catch {
+      // Best-effort stop.
+    }
+  }
+
   Vibration.cancel();
   setAlarmActive(false);
 

@@ -7,6 +7,7 @@ import {
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -46,6 +47,9 @@ const iconMap: Record<keyof TabParamList, React.ComponentProps<typeof Ionicons>[
 };
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = Math.max(insets.bottom, 10);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -55,9 +59,9 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: '#FFF8EE',
           borderTopColor: '#E8D9C6',
-          height: 68,
+          height: 60 + tabBarBottomPadding,
           paddingTop: 8,
-          paddingBottom: 8,
+          paddingBottom: tabBarBottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: 12,

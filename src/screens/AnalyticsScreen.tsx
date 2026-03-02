@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import StatCard from '../components/StatCard';
@@ -35,6 +36,7 @@ export default function AnalyticsScreen() {
   const setAnalyticsRange = useAppStore((state) => state.setAnalyticsRange);
   const todaysSummary = useAppStore((state) => state.todaysSummary);
   const settings = useAppStore((state) => state.settings);
+  const tabBarHeight = useBottomTabBarHeight();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot>(emptySnapshot);
 
   useEffect(() => {
@@ -63,7 +65,12 @@ export default function AnalyticsScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingBottom: tabBarHeight + 18,
+        },
+      ]}
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Analytics</Text>

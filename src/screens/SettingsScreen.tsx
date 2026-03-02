@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Alert,
   Pressable,
@@ -74,6 +75,7 @@ export default function SettingsScreen() {
   const updateSettings = useAppStore((state) => state.updateSettings);
   const resetAllData = useAppStore((state) => state.resetAllData);
   const { requestCalendarAccess, requestLocationAccess } = usePermissions();
+  const tabBarHeight = useBottomTabBarHeight();
   const [savingLocation, setSavingLocation] = useState<'home' | 'office' | null>(null);
 
   const alertIntervalOptions = useMemo(
@@ -98,7 +100,12 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingBottom: tabBarHeight + 18,
+        },
+      ]}
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
@@ -315,7 +322,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 36,
     gap: 18,
   },
   header: {

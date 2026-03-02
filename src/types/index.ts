@@ -80,6 +80,7 @@ export interface AppRuntimeState {
   alarmActive: boolean;
   pausedCountdownRemainingMs: number | null;
   preSnoozeRemainingMs: number | null;
+  pendingWalkConfirmationUntil: number | null;
   walkingPauseSince: number | null;
   walkingSince: number | null;
   stillSince: number | null;

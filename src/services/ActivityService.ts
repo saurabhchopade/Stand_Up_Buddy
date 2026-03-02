@@ -4,6 +4,7 @@ import { getTodaySummary, recordActivityEvent, recordNotificationEvent } from '.
 import { useAppStore } from '../store/useAppStore';
 import { NotificationActionKey, SuppressionReason } from '../types';
 import {
+  GO_FOR_WALK_CONFIRMATION_SECONDS,
   QUALIFIED_WALK_SECONDS,
   REPEATED_ALERT_INTERVAL_MINUTES,
   SNOOZE_DURATION_MINUTES,
@@ -19,6 +20,7 @@ import { sendInactivityNotification } from './NotificationService';
 type PersistedRuntime = {
   pausedCountdownRemainingMs: number | null;
   preSnoozeRemainingMs: number | null;
+  pendingWalkConfirmationUntil: number | null;
   walkingPauseSince: number | null;
   walkingSince: number | null;
   stillSince: number | null;
@@ -34,6 +36,7 @@ const persistRuntime = async () => {
   const {
     pausedCountdownRemainingMs,
     preSnoozeRemainingMs,
+    pendingWalkConfirmationUntil,
     walkingPauseSince,
     walkingSince,
     stillSince,
@@ -45,6 +48,7 @@ const persistRuntime = async () => {
   const payload: PersistedRuntime = {
     pausedCountdownRemainingMs,
     preSnoozeRemainingMs,
+    pendingWalkConfirmationUntil,
     walkingPauseSince,
     walkingSince,
     stillSince,
@@ -59,6 +63,37 @@ const persistRuntime = async () => {
 
 const clearPersistedRuntime = async () => {
   await AsyncStorage.removeItem(STORAGE_KEYS.runtime);
+};
+
+const markCurrentAlertIgnored = async (
+  reason: string,
+  notificationId?: string
+) => {
+  useAppStore.getState().recordAlertIgnored();
+  await recordNotificationEvent('DISMISSED', reason, {
+    notificationId,
+  });
+};
+
+const beginGoForWalkConfirmation = async () => {
+  const state = useAppStore.getState();
+  const now = Date.now();
+  const confirmationDeadline = now + GO_FOR_WALK_CONFIRMATION_SECONDS * 1000;
+
+  await stopAlarmLoop();
+
+  state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: confirmationDeadline,
+    walkingPauseSince: null,
+    countdownStartedAt: now,
+    countdownTargetAt: confirmationDeadline,
+    lastSuppressionReason: null,
+    snoozeUntil: null,
+  });
+
+  await persistRuntime();
 };
 
 const completeQualifiedWalk = async (timestamp: number = Date.now()) => {
@@ -89,6 +124,7 @@ const completeQualifiedWalk = async (timestamp: number = Date.now()) => {
   state.patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
     stillSince: null,
@@ -111,6 +147,7 @@ const scheduleFromNow = async (startAt: number = Date.now()) => {
     countdownTargetAt: startAt + settings.alertIntervalMinutes * 60 * 1000,
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     lastSuppressionReason: null,
   });
 
@@ -166,6 +203,7 @@ export const hydratePersistedRuntime = async () => {
     useAppStore.getState().patchRuntime({
       pausedCountdownRemainingMs: parsed.pausedCountdownRemainingMs,
       preSnoozeRemainingMs: parsed.preSnoozeRemainingMs,
+      pendingWalkConfirmationUntil: parsed.pendingWalkConfirmationUntil,
       walkingPauseSince: parsed.walkingPauseSince,
       walkingSince: parsed.walkingSince,
       stillSince: parsed.stillSince,
@@ -204,6 +242,7 @@ export const handleActivityChange = async (
       state.patchRuntime({
         pausedCountdownRemainingMs: pausedRemainingMs,
         preSnoozeRemainingMs: null,
+        pendingWalkConfirmationUntil: null,
         walkingPauseSince: null,
         walkingSince: timestamp,
         countdownTargetAt: null,
@@ -215,6 +254,7 @@ export const handleActivityChange = async (
 
     if (state.walkingPauseSince) {
       state.patchRuntime({
+        pendingWalkConfirmationUntil: null,
         walkingPauseSince: null,
       });
     }
@@ -242,6 +282,7 @@ export const handleActivityChange = async (
       state.patchRuntime({
         pausedCountdownRemainingMs: null,
         preSnoozeRemainingMs: null,
+        pendingWalkConfirmationUntil: null,
         walkingPauseSince: null,
         walkingSince: null,
         countdownTargetAt: timestamp + state.pausedCountdownRemainingMs,
@@ -292,6 +333,7 @@ export const manualResetTimer = async () => {
   state.patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
     stillSince: now,
@@ -309,6 +351,7 @@ export const enableMeetingModeForHour = async () => {
   useAppStore.getState().patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
   });
@@ -329,6 +372,7 @@ const applySnoozeForMinutes = async (minutes: number = SNOOZE_DURATION_MINUTES) 
   state.patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
     countdownStartedAt: now,
@@ -350,6 +394,7 @@ export const cancelSnooze = async () => {
   state.patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
     countdownStartedAt: now,
@@ -388,6 +433,7 @@ export const acknowledgeCurrentAlert = async () => {
   state.patchRuntime({
     pausedCountdownRemainingMs: null,
     preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
     walkingPauseSince: null,
     walkingSince: null,
     countdownStartedAt: now,
@@ -401,6 +447,23 @@ export const acknowledgeCurrentAlert = async () => {
 
 export const evaluateInactivity = async () => {
   const state = useAppStore.getState();
+
+  if (state.pendingWalkConfirmationUntil) {
+    const now = Date.now();
+
+    if (now < state.pendingWalkConfirmationUntil) {
+      return;
+    }
+
+    if (!state.walkingSince && state.currentActivityState !== 'WALKING') {
+      await markCurrentAlertIgnored('WALK_NOT_STARTED');
+    }
+
+    state.patchRuntime({
+      pendingWalkConfirmationUntil: null,
+    });
+    await persistRuntime();
+  }
 
   if (state.currentActivityState === 'WALKING') {
     const completedWalk = await completeQualifiedWalk();
@@ -420,6 +483,7 @@ export const evaluateInactivity = async () => {
       state.patchRuntime({
         pausedCountdownRemainingMs: null,
         preSnoozeRemainingMs: null,
+        pendingWalkConfirmationUntil: null,
         walkingPauseSince: null,
         walkingSince: null,
         countdownTargetAt: now + state.pausedCountdownRemainingMs,
@@ -449,6 +513,7 @@ export const evaluateInactivity = async () => {
     if (suppressionReason) {
       state.patchRuntime({
         pausedCountdownRemainingMs: null,
+        pendingWalkConfirmationUntil: null,
         walkingPauseSince: null,
         countdownStartedAt: now,
         countdownTargetAt:
@@ -474,6 +539,7 @@ export const evaluateInactivity = async () => {
     state.patchRuntime({
       pausedCountdownRemainingMs: null,
       preSnoozeRemainingMs: null,
+      pendingWalkConfirmationUntil: null,
       walkingPauseSince: null,
       countdownStartedAt: now,
       countdownTargetAt: now + REPEATED_ALERT_INTERVAL_MINUTES * 60 * 1000,
@@ -497,9 +563,10 @@ export const handleNotificationAction = async (
       return;
     case 'START_WALK':
       await recordNotificationEvent('START_WALK', null, { notificationId });
-      await manualResetTimer();
+      await beginGoForWalkConfirmation();
       return;
     case 'SNOOZE':
+      await markCurrentAlertIgnored('SNOOZED', notificationId);
       await recordNotificationEvent('SNOOZE', null, { notificationId });
       await snoozeForMinutes(SNOOZE_DURATION_MINUTES);
       return;
@@ -508,8 +575,7 @@ export const handleNotificationAction = async (
       await enableMeetingModeForHour();
       return;
     case 'DISMISSED':
-      useAppStore.getState().recordAlertIgnored();
-      await recordNotificationEvent('DISMISSED', null, { notificationId });
+      await markCurrentAlertIgnored('USER_DISMISSED', notificationId);
       return;
     case 'OPEN_APP':
     default:

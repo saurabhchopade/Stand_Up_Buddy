@@ -2,14 +2,25 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ChartBarDatum } from '../types';
-import { formatMinutes } from '../utils/timeUtils';
 
 type WeeklyChartProps = {
   bars: ChartBarDatum[];
 };
 
+const BAR_TRACK_HEIGHT = 132;
+
+const formatCompactMinutes = (minutes: number) => {
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder > 0 ? `${hours}h${remainder}m` : `${hours}h`;
+};
+
 export default function WeeklyChart({ bars }: WeeklyChartProps) {
-  const maxValue = Math.max(1, ...bars.map((bar) => bar.value));
+  const maxValue = Math.max(60, ...bars.map((bar) => bar.value));
 
   return (
     <View style={styles.card}>
@@ -22,13 +33,22 @@ export default function WeeklyChart({ bars }: WeeklyChartProps) {
                 style={[
                   styles.barFill,
                   {
-                    height: `${(bar.value / maxValue) * 100}%`,
+                    height:
+                      bar.value > 0
+                        ? Math.max(4, (bar.value / maxValue) * BAR_TRACK_HEIGHT)
+                        : 0,
                   },
                 ]}
               />
             </View>
             <Text style={styles.barLabel}>{bar.label}</Text>
-            <Text style={styles.barValue}>{formatMinutes(bar.value)}</Text>
+            <Text
+              style={styles.barValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}>
+              {formatCompactMinutes(bar.value)}
+            </Text>
           </View>
         ))}
       </View>
@@ -55,7 +75,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: 10,
-    height: 180,
+    minHeight: 180,
   },
   column: {
     flex: 1,
@@ -64,7 +84,7 @@ const styles = StyleSheet.create({
   },
   barTrack: {
     width: '100%',
-    flex: 1,
+    height: BAR_TRACK_HEIGHT,
     borderRadius: 999,
     backgroundColor: '#F0E1CC',
     justifyContent: 'flex-end',
@@ -72,7 +92,6 @@ const styles = StyleSheet.create({
   },
   barFill: {
     width: '100%',
-    minHeight: 4,
     borderRadius: 999,
     backgroundColor: '#D96B2B',
   },
@@ -84,5 +103,7 @@ const styles = StyleSheet.create({
   barValue: {
     fontSize: 11,
     color: '#7B6A57',
+    width: '100%',
+    textAlign: 'center',
   },
 });

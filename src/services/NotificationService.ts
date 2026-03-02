@@ -1,4 +1,4 @@
-import { Alert, AppState, Platform, Vibration } from 'react-native';
+import { Alert, AppState, NativeModules, Platform, Vibration } from 'react-native';
 import Constants from 'expo-constants';
 import * as TaskManager from 'expo-task-manager';
 
@@ -28,6 +28,10 @@ let responseSubscription: { remove: () => void } | null = null;
 const isExpoGo =
   Constants.executionEnvironment === 'storeClient' ||
   Constants.appOwnership === 'expo';
+const supportsNativeAndroidAlarm =
+  Platform.OS === 'android' &&
+  !isExpoGo &&
+  Boolean(NativeModules.SitAlertAlarmModule);
 
 const mapAction = (actionIdentifier: string): NotificationActionKey => {
   switch (actionIdentifier) {
@@ -193,6 +197,10 @@ export const sendInactivityNotification = async (minutesInactive: number) => {
       'Time to move',
       `You have been still for ${minutesInactive} minutes. A short walk will reset the timer.`
     );
+    return null;
+  }
+
+  if (supportsNativeAndroidAlarm) {
     return null;
   }
 

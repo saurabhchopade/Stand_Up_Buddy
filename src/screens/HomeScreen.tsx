@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Pressable,
   ScrollView,
@@ -48,6 +49,7 @@ export default function HomeScreen() {
   const todaysSummary = useAppStore((state) => state.todaysSummary);
   const setManualMeetingMode = useAppStore((state) => state.setManualMeetingMode);
   const setNightModeOverride = useAppStore((state) => state.setNightModeOverride);
+  const tabBarHeight = useBottomTabBarHeight();
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -98,8 +100,48 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingBottom: tabBarHeight + 18,
+        },
+      ]}
       showsVerticalScrollIndicator={false}>
+      {alarmActive ? (
+        <View style={styles.alarmPanel}>
+          <View style={styles.alarmHeader}>
+            <Text style={styles.alarmTitle}>Alarm Active</Text>
+            <Text style={styles.alarmCopy}>
+              Sound and vibration continue until you act.
+            </Text>
+          </View>
+          <View style={styles.alarmActions}>
+            <Pressable
+              onPress={() => {
+                void acknowledgeCurrentAlert();
+              }}
+              style={({ pressed }) => [
+                styles.alarmButton,
+                styles.alarmButtonSecondary,
+                pressed && styles.alarmButtonPressed,
+              ]}>
+              <Text style={styles.alarmButtonSecondaryText}>OK</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                void snoozeForMinutes(10);
+              }}
+              style={({ pressed }) => [
+                styles.alarmButton,
+                styles.alarmButtonPrimary,
+                pressed && styles.alarmButtonPressed,
+              ]}>
+              <Text style={styles.alarmButtonPrimaryText}>Snooze 10 min</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
           <Text style={styles.eyebrow}>SitAlert</Text>
@@ -122,39 +164,6 @@ export default function HomeScreen() {
           <Text style={styles.bannerText}>
             Timer paused while walking. Keep walking for 30 seconds to reset it.
           </Text>
-        </View>
-      ) : null}
-
-      {alarmActive ? (
-        <View style={styles.alarmPanel}>
-          <Text style={styles.alarmTitle}>Alarm Active</Text>
-          <Text style={styles.alarmCopy}>
-            Sound and vibration will continue until you move, tap OK, or snooze.
-          </Text>
-          <View style={styles.alarmActions}>
-            <Pressable
-              onPress={() => {
-                void acknowledgeCurrentAlert();
-              }}
-              style={({ pressed }) => [
-                styles.alarmButton,
-                styles.alarmButtonSecondary,
-                pressed && styles.alarmButtonPressed,
-              ]}>
-              <Text style={styles.alarmButtonSecondaryText}>OK</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                void snoozeForMinutes(10);
-              }}
-              style={({ pressed }) => [
-                styles.alarmButton,
-                styles.alarmButtonPrimary,
-                pressed && styles.alarmButtonPressed,
-              ]}>
-              <Text style={styles.alarmButtonPrimaryText}>Snooze 10</Text>
-            </Pressable>
-          </View>
         </View>
       ) : null}
 
@@ -235,15 +244,14 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 36,
-    gap: 18,
+    gap: 14,
   },
   hero: {
-    padding: 20,
+    padding: 16,
     borderRadius: 28,
     backgroundColor: '#1F3A2F',
     flexDirection: 'row',
-    gap: 18,
+    gap: 14,
     alignItems: 'center',
   },
   heroCopy: {
@@ -259,14 +267,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFF8EE',
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '800',
-    lineHeight: 31,
+    lineHeight: 27,
   },
   subtitle: {
     color: 'rgba(255, 248, 238, 0.75)',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 18,
   },
   toggleGrid: {
     flexDirection: 'row',
@@ -286,19 +294,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   alarmPanel: {
-    padding: 18,
-    borderRadius: 22,
+    padding: 14,
+    borderRadius: 18,
     backgroundColor: '#5A1515',
-    gap: 12,
+    gap: 10,
+  },
+  alarmHeader: {
+    gap: 4,
   },
   alarmTitle: {
     color: '#FFF4EE',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   alarmCopy: {
     color: 'rgba(255, 244, 238, 0.84)',
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   alarmActions: {
     flexDirection: 'row',
@@ -306,8 +318,8 @@ const styles = StyleSheet.create({
   },
   alarmButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -342,7 +354,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   primaryButton: {
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
