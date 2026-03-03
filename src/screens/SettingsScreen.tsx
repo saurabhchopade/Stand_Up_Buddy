@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -13,7 +13,11 @@ import {
 
 import { resetDatabase } from '../database/db';
 import { usePermissions } from '../hooks/usePermissions';
-import { manualResetTimer, recalculateCountdown } from '../services/ActivityService';
+import {
+  manualResetTimer,
+  recalculateCountdown,
+  setKillSwitch,
+} from '../services/ActivityService';
 import { saveCurrentLocation } from '../services/LocationService';
 import { useAppStore } from '../store/useAppStore';
 import { formatClockLabel } from '../utils/timeUtils';
@@ -113,6 +117,7 @@ export default function SettingsScreen() {
   const permissions = useAppStore((state) => state.permissions);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const resetAllData = useAppStore((state) => state.resetAllData);
+  const killSwitchEnabled = useAppStore((state) => state.killSwitchEnabled);
   const { requestCalendarAccess, requestLocationAccess } = usePermissions();
   const tabBarHeight = useBottomTabBarHeight();
   const [savingLocation, setSavingLocation] = useState<'home' | 'office' | null>(null);
@@ -182,7 +187,7 @@ export default function SettingsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
-          Tune how aggressively SitAlert intervenes, and which contexts should silence notifications.
+          Tune how aggressively StandUpBro intervenes, and which contexts should silence notifications.
         </Text>
       </View>
 
@@ -208,30 +213,15 @@ export default function SettingsScreen() {
       />
 
       <View style={styles.panel}>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleCopy}>
-            <Text style={styles.panelTitle}>Water reminder</Text>
-            <Text style={styles.helper}>Adds a hydration prompt every 60 minutes.</Text>
-          </View>
-          <Switch
-            value={settings.waterReminderEnabled}
-            onValueChange={(value) => updateSettings({ waterReminderEnabled: value })}
-            trackColor={{ false: '#D5C5AF', true: '#D96B2B' }}
-            thumbColor="#FFF8EE"
-          />
-        </View>
-      </View>
-
-      <View style={styles.panel}>
         <Text style={styles.panelTitle}>Saved locations</Text>
         <Text style={styles.helper}>
-          Current MVP saves your live GPS coordinates. Manual address geocoding can be layered on next.
+          Save your current GPS coordinates for Home and Office. Manual address entry can be added later.
         </Text>
         <View style={styles.toggleRow}>
           <View style={styles.toggleCopy}>
             <Text style={styles.panelTitle}>Location-Based Suppression</Text>
             <Text style={styles.helper}>
-              Turn off office-location suppression while keeping saved GPS pins.
+              Disable location-based suppression while keeping your saved locations.
             </Text>
           </View>
           <Switch
@@ -273,6 +263,40 @@ export default function SettingsScreen() {
             {savingLocation === 'office' ? 'Saving...' : 'Set Office from GPS'}
           </Text>
         </Pressable>
+      </View>
+
+      <View style={styles.panel}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.panelTitle}>Water reminder</Text>
+            <Text style={styles.helper}>Adds a hydration prompt every 60 minutes.</Text>
+          </View>
+          <Switch
+            value={settings.waterReminderEnabled}
+            onValueChange={(value) => updateSettings({ waterReminderEnabled: value })}
+            trackColor={{ false: '#D5C5AF', true: '#D96B2B' }}
+            thumbColor="#FFF8EE"
+          />
+        </View>
+      </View>
+
+      <View style={styles.panel}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.panelTitle}>Kill switch</Text>
+            <Text style={styles.helper}>
+              Instantly pause all reminders and stop any active alarm until you turn it back on.
+            </Text>
+          </View>
+          <Switch
+            value={killSwitchEnabled}
+            onValueChange={(value) => {
+              void setKillSwitch(value);
+            }}
+            trackColor={{ false: '#D5C5AF', true: '#D96B2B' }}
+            thumbColor="#FFF8EE"
+          />
+        </View>
       </View>
 
       <View style={styles.panel}>

@@ -15,7 +15,6 @@ import {
   acknowledgeCurrentAlert,
   toggleSnoozeForMinutes,
   enableMeetingModeForHour,
-  setKillSwitch,
   snoozeForMinutes,
 } from '../services/ActivityService';
 import { formatMinutes, secondsRemaining } from '../utils/timeUtils';
@@ -43,7 +42,6 @@ export default function HomeScreen() {
   const manualMeetingModeUntil = useAppStore((state) => state.manualMeetingModeUntil);
   const snoozeUntil = useAppStore((state) => state.snoozeUntil);
   const nightModeOverride = useAppStore((state) => state.nightModeOverride);
-  const killSwitchEnabled = useAppStore((state) => state.killSwitchEnabled);
   const lastSuppressionReason = useAppStore((state) => state.lastSuppressionReason);
   const settings = useAppStore((state) => state.settings);
   const todaysSummary = useAppStore((state) => state.todaysSummary);
@@ -126,7 +124,7 @@ export default function HomeScreen() {
 
       <View style={styles.hero}>
         <View style={styles.heroCopy}>
-          <Text style={styles.eyebrow}>SitAlert</Text>
+          <Text style={styles.eyebrow}>StandUpBro</Text>
           <Text style={styles.title}>Break long sitting streaks before they become your baseline.</Text>
         </View>
         <CountdownRing progress={ringProgress} secondsRemaining={remainingSeconds} />
@@ -215,30 +213,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <Pressable
-        onPress={() => {
-          void setKillSwitch(!killSwitchEnabled);
-        }}
-        style={({ pressed }) => [
-          styles.killSwitchButton,
-          killSwitchEnabled && styles.killSwitchButtonActive,
-          pressed && styles.killSwitchButtonPressed,
-        ]}>
-        <Text
-          style={[
-            styles.killSwitchLabel,
-            killSwitchEnabled && styles.killSwitchLabelActive,
-          ]}>
-          {killSwitchEnabled ? 'Kill Switch On' : 'Kill Switch'}
-        </Text>
-        <Text
-          style={[
-            styles.killSwitchCaption,
-            killSwitchEnabled && styles.killSwitchCaptionActive,
-          ]}>
-          {killSwitchEnabled ? 'All reminders are paused' : 'Turn off all reminders'}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -304,39 +278,6 @@ const styles = StyleSheet.create({
   toggleGrid: {
     flexDirection: 'row',
     gap: 8,
-  },
-  killSwitchButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: '#FFF8EE',
-    borderWidth: 1,
-    borderColor: '#E8D9C6',
-    gap: 2,
-  },
-  killSwitchButtonActive: {
-    backgroundColor: '#D96B2B',
-    borderColor: '#D96B2B',
-  },
-  killSwitchButtonPressed: {
-    opacity: 0.92,
-  },
-  killSwitchLabel: {
-    color: '#1E1A16',
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  killSwitchLabelActive: {
-    color: '#FFF8EE',
-  },
-  killSwitchCaption: {
-    color: '#7B6A57',
-    fontSize: 11,
-  },
-  killSwitchCaptionActive: {
-    color: 'rgba(255, 248, 238, 0.82)',
   },
   banner: {
     paddingHorizontal: 14,

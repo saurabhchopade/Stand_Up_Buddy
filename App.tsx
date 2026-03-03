@@ -12,7 +12,9 @@ import { useActivityState } from './src/hooks/useActivityState';
 import { usePermissions } from './src/hooks/usePermissions';
 import { hydratePersistedRuntime, handleNotificationAction } from './src/services/ActivityService';
 import { registerBackgroundMonitoring } from './src/services/BackgroundTaskService';
+import { syncMonitoringNotification } from './src/services/MonitorNotificationService';
 import { initializeNotifications } from './src/services/NotificationService';
+import { useAppStore } from './src/store/useAppStore';
 import { NotificationActionKey } from './src/types';
 
 const getAlarmActionFromUrl = (url: string | null): NotificationActionKey | null => {
@@ -63,6 +65,7 @@ function AppRuntime({ children }: PropsWithChildren) {
     const bootstrap = async () => {
       await initializeDatabase();
       await hydratePersistedRuntime();
+      await syncMonitoringNotification();
       await handleAlarmActionUrl(await Linking.getInitialURL());
       if (!isExpoGo) {
         await initializeNotifications(async (action, notificationId) => {
@@ -76,12 +79,16 @@ function AppRuntime({ children }: PropsWithChildren) {
       if (!cancelled && Platform.OS === 'android') {
         Alert.alert(
           'Battery optimization',
-          'For reliable background reminders, exclude SitAlert from battery optimization in Android settings.'
+          'For reliable background reminders, exclude StandUpBro from battery optimization in Android settings.'
         );
       }
     };
 
     void bootstrap();
+
+    const unsubscribeStore = useAppStore.subscribe(() => {
+      void syncMonitoringNotification();
+    });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
       void handleAlarmActionUrl(url);
@@ -89,6 +96,7 @@ function AppRuntime({ children }: PropsWithChildren) {
 
     return () => {
       cancelled = true;
+      unsubscribeStore();
       subscription.remove();
     };
   }, [isExpoGo, requestStartupPermissions]);

@@ -15,6 +15,7 @@ import { isInTimeRange, minutesBetween } from '../utils/timeUtils';
 import { startAlarmLoop, stopAlarmLoop } from './AlarmService';
 import { isCalendarBusy } from './CalendarService';
 import { isAtOfficeLocation } from './LocationService';
+import { syncMonitoringNotification } from './MonitorNotificationService';
 import { sendInactivityNotification } from './NotificationService';
 
 type PersistedRuntime = {
@@ -62,10 +63,12 @@ const persistRuntime = async () => {
   };
 
   await AsyncStorage.setItem(STORAGE_KEYS.runtime, JSON.stringify(payload));
+  await syncMonitoringNotification();
 };
 
 const clearPersistedRuntime = async () => {
   await AsyncStorage.removeItem(STORAGE_KEYS.runtime);
+  await syncMonitoringNotification();
 };
 
 const markCurrentAlertIgnored = async (

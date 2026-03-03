@@ -18,7 +18,7 @@ export const usePermissions = () => {
 
     Alert.alert(
       'Stay active',
-      'SitAlert needs notification access so it can remind you when you have been inactive.'
+      'StandUpBro needs notification access so it can remind you when you have been inactive.'
     );
     await requestNotificationPermission();
   }, []);
@@ -26,7 +26,7 @@ export const usePermissions = () => {
   const requestCalendarAccess = useCallback(async () => {
     Alert.alert(
       'Meeting detection',
-      'Calendar access lets SitAlert suppress reminders while you are in scheduled meetings.'
+      'Calendar access lets StandUpBro suppress reminders while you are in scheduled meetings.'
     );
     return requestCalendarPermission();
   }, []);
@@ -34,7 +34,7 @@ export const usePermissions = () => {
   const requestLocationAccess = useCallback(async () => {
     Alert.alert(
       'Location-based suppression',
-      'Location access lets SitAlert suppress reminders at your saved office location.'
+      'Location access lets StandUpBro suppress reminders at your saved office location.'
     );
     return requestLocationPermission();
   }, []);

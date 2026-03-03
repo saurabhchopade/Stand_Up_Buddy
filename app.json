@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SitAlert",
+    "name": "StandUpBro",
     "slug": "sitalert",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,8 +12,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sitalert.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "SitAlert uses your location to suppress reminders at saved home or office locations.",
-        "NSCalendarsUsageDescription": "SitAlert checks busy events to suppress inactivity reminders during meetings."
+        "NSLocationWhenInUseUsageDescription": "StandUpBro uses your location to suppress reminders at saved home or office locations.",
+        "NSCalendarsUsageDescription": "StandUpBro checks busy events to suppress inactivity reminders during meetings."
       }
     },
     "android": {

@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 
 import { BACKGROUND_TASK_NAME } from '../utils/constants';
 import { evaluateInactivity, hydratePersistedRuntime } from './ActivityService';
+import { syncMonitoringNotification } from './MonitorNotificationService';
 
 const isExpoGo =
   Constants.executionEnvironment === 'storeClient' ||
@@ -20,6 +21,7 @@ export const registerBackgroundMonitoring = async () => {
       try {
         await hydratePersistedRuntime();
         await evaluateInactivity();
+        await syncMonitoringNotification();
         return BackgroundFetch.BackgroundFetchResult.NewData;
       } catch {
         return BackgroundFetch.BackgroundFetchResult.Failed;
