@@ -28,7 +28,7 @@ export default function ToggleCard({
       <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
         <Ionicons
           name={icon}
-          size={20}
+          size={18}
           color={active ? '#FFF7EE' : '#6B6256'}
         />
       </View>
@@ -41,13 +41,13 @@ export default function ToggleCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minWidth: 100,
-    padding: 16,
-    borderRadius: 20,
+    minWidth: 0,
+    padding: 12,
+    borderRadius: 18,
     backgroundColor: '#FFF8EE',
     borderWidth: 1,
     borderColor: '#E8D9C6',
-    gap: 10,
+    gap: 8,
   },
   cardActive: {
     backgroundColor: '#D96B2B',
@@ -57,9 +57,9 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3E6D3',
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   label: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#231D17',
   },
@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
     color: '#FFF7EE',
   },
   caption: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
     color: '#7B6A57',
   },
   captionActive: {

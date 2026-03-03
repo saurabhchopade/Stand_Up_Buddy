@@ -28,6 +28,7 @@ type PersistedRuntime = {
   countdownStartedAt: number | null;
   countdownTargetAt: number | null;
   lastAlertAt: number | null;
+  killSwitchEnabled: boolean;
 };
 
 let evaluationInFlight = false;
@@ -44,6 +45,7 @@ const persistRuntime = async () => {
     countdownStartedAt,
     countdownTargetAt,
     lastAlertAt,
+    killSwitchEnabled,
   } = useAppStore.getState();
   const payload: PersistedRuntime = {
     pausedCountdownRemainingMs,
@@ -56,6 +58,7 @@ const persistRuntime = async () => {
     countdownStartedAt,
     countdownTargetAt,
     lastAlertAt,
+    killSwitchEnabled,
   };
 
   await AsyncStorage.setItem(STORAGE_KEYS.runtime, JSON.stringify(payload));
@@ -211,6 +214,7 @@ export const hydratePersistedRuntime = async () => {
       countdownStartedAt: parsed.countdownStartedAt,
       countdownTargetAt: parsed.countdownTargetAt,
       lastAlertAt: parsed.lastAlertAt,
+      killSwitchEnabled: parsed.killSwitchEnabled ?? false,
     });
   } catch {
     await clearPersistedRuntime();
@@ -228,6 +232,10 @@ export const handleActivityChange = async (
   const timestamp = Date.now();
 
   state.setMotionState(nextState, confidence, timestamp);
+
+  if (state.killSwitchEnabled) {
+    return;
+  }
 
   if (nextState === 'WALKING') {
     if (!state.walkingSince) {
@@ -315,6 +323,49 @@ export const recalculateCountdown = async () => {
   }
 
   await scheduleFromNow(countdownStartedAt);
+};
+
+export const setKillSwitch = async (enabled: boolean) => {
+  const state = useAppStore.getState();
+  const now = Date.now();
+
+  state.setKillSwitchEnabled(enabled);
+  await stopAlarmLoop();
+
+  if (enabled) {
+    state.patchRuntime({
+      pausedCountdownRemainingMs: null,
+      preSnoozeRemainingMs: null,
+      pendingWalkConfirmationUntil: null,
+      walkingPauseSince: null,
+      walkingSince: null,
+      countdownStartedAt: null,
+      countdownTargetAt: null,
+      manualMeetingModeUntil: null,
+      snoozeUntil: null,
+      lastSuppressionReason: 'KILL_SWITCH',
+    });
+    await persistRuntime();
+    return;
+  }
+
+  state.patchRuntime({
+    pausedCountdownRemainingMs: null,
+    preSnoozeRemainingMs: null,
+    pendingWalkConfirmationUntil: null,
+    walkingPauseSince: null,
+    walkingSince: null,
+    manualMeetingModeUntil: null,
+    snoozeUntil: null,
+    lastSuppressionReason: null,
+  });
+
+  if (state.currentActivityState === 'STILL') {
+    await scheduleFromNow(now);
+    return;
+  }
+
+  await persistRuntime();
 };
 
 export const manualResetTimer = async () => {
@@ -447,6 +498,10 @@ export const acknowledgeCurrentAlert = async () => {
 
 export const evaluateInactivity = async () => {
   const state = useAppStore.getState();
+
+  if (state.killSwitchEnabled) {
+    return;
+  }
 
   if (state.pendingWalkConfirmationUntil) {
     const now = Date.now();

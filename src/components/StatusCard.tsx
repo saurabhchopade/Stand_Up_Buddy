@@ -45,12 +45,12 @@ export default function StatusCard({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 18,
-    borderRadius: 24,
+    padding: 14,
+    borderRadius: 20,
     backgroundColor: '#FFF8EE',
     borderWidth: 1,
     borderColor: '#E8D9C6',
-    gap: 8,
+    gap: 6,
   },
   header: {
     flexDirection: 'row',
@@ -75,12 +75,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   value: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
     color: '#201B16',
   },
   subtle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#7B6A57',
   },
 });

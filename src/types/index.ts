@@ -9,6 +9,7 @@ export type NotificationActionKey =
   | 'OPEN_APP'
   | 'DISMISSED';
 export type SuppressionReason =
+  | 'KILL_SWITCH'
   | 'MEETING_MODE'
   | 'CALENDAR_BUSY'
   | 'NIGHT_RANGE'
@@ -92,6 +93,7 @@ export interface AppRuntimeState {
   manualMeetingModeUntil: number | null;
   snoozeUntil: number | null;
   nightModeOverride: boolean;
+  killSwitchEnabled: boolean;
 }
 
 export interface ChartBarDatum {

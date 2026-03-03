@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Alert,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -23,6 +24,44 @@ type DiscreteSliderProps = {
   suffix: string;
   currentValue: number;
   onChange: (value: number) => void;
+};
+
+const stripTimeDigits = (value: string) => value.replace(/\D/g, '').slice(0, 4);
+
+const formatTimeInput = (value: string) => {
+  const digits = stripTimeDigits(value);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+};
+
+const normalizeTimeInput = (value: string) => {
+  const digits = stripTimeDigits(value);
+
+  if (digits.length !== 4) {
+    return null;
+  }
+
+  const hours = Number(digits.slice(0, 2));
+  const minutes = Number(digits.slice(2, 4));
+
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  return `${hours.toString().padStart(2, '0')}:${minutes
+    .toString()
+    .padStart(2, '0')}`;
 };
 
 function DiscreteSlider({
@@ -77,6 +116,8 @@ export default function SettingsScreen() {
   const { requestCalendarAccess, requestLocationAccess } = usePermissions();
   const tabBarHeight = useBottomTabBarHeight();
   const [savingLocation, setSavingLocation] = useState<'home' | 'office' | null>(null);
+  const [nightStartInput, setNightStartInput] = useState(settings.nightModeStart);
+  const [nightEndInput, setNightEndInput] = useState(settings.nightModeEnd);
 
   const alertIntervalOptions = useMemo(
     () => [1,3, 5, 15, 20, 30, 40, 50, 60, 75, 90],
@@ -86,8 +127,14 @@ export default function SettingsScreen() {
     () => Array.from({ length: 10 }, (_, index) => index + 1),
     []
   );
-  const nightStartOptions = ['21:00', '22:00', '23:00', '00:00'];
-  const nightEndOptions = ['05:00', '06:00', '07:00', '08:00'];
+
+  useEffect(() => {
+    setNightStartInput(settings.nightModeStart);
+  }, [settings.nightModeStart]);
+
+  useEffect(() => {
+    setNightEndInput(settings.nightModeEnd);
+  }, [settings.nightModeEnd]);
 
   const locationSummary = (label: string, value: typeof locations.home) => {
     if (!value) {
@@ -96,6 +143,31 @@ export default function SettingsScreen() {
 
     return `${label}: ${value.latitude.toFixed(3)}, ${value.longitude.toFixed(3)}`;
   };
+
+  const saveNightTime = (key: 'nightModeStart' | 'nightModeEnd', draft: string) => {
+    const normalized = normalizeTimeInput(draft);
+    const fallbackValue = settings[key];
+
+    if (!normalized) {
+      if (key === 'nightModeStart') {
+        setNightStartInput(fallbackValue);
+      } else {
+        setNightEndInput(fallbackValue);
+      }
+      return;
+    }
+
+    updateSettings({ [key]: normalized });
+
+    if (key === 'nightModeStart') {
+      setNightStartInput(normalized);
+    } else {
+      setNightEndInput(normalized);
+    }
+  };
+
+  const normalizedNightStart = normalizeTimeInput(nightStartInput);
+  const normalizedNightEnd = normalizeTimeInput(nightEndInput);
 
   return (
     <ScrollView
@@ -229,46 +301,63 @@ export default function SettingsScreen() {
           Current schedule: {formatClockLabel(settings.nightModeStart)} to{' '}
           {formatClockLabel(settings.nightModeEnd)}
         </Text>
+        <Text style={styles.helper}>Enter any 24-hour time in `HH:MM` format.</Text>
+
         <Text style={styles.smallLabel}>Starts</Text>
-        <View style={styles.timeGrid}>
-          {nightStartOptions.map((value) => (
-            <Pressable
-              key={value}
-              onPress={() => updateSettings({ nightModeStart: value })}
-              style={[
-                styles.timeChip,
-                settings.nightModeStart === value && styles.timeChipActive,
-              ]}>
-              <Text
-                style={[
-                  styles.timeChipText,
-                  settings.nightModeStart === value && styles.timeChipTextActive,
-                ]}>
-                {formatClockLabel(value)}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={styles.timeEditorRow}>
+          <TextInput
+            value={formatTimeInput(nightStartInput)}
+            onChangeText={(value) => setNightStartInput(stripTimeDigits(value))}
+            onBlur={() => saveNightTime('nightModeStart', nightStartInput)}
+            onSubmitEditing={() => saveNightTime('nightModeStart', nightStartInput)}
+            placeholder="23:00"
+            placeholderTextColor="#A18F7A"
+            keyboardType="number-pad"
+            maxLength={5}
+            style={styles.timeInput}
+          />
+          <Pressable
+            onPress={() => saveNightTime('nightModeStart', nightStartInput)}
+            style={({ pressed }) => [
+              styles.timeSaveButton,
+              !normalizedNightStart && styles.timeSaveButtonDisabled,
+              pressed && normalizedNightStart && styles.secondaryButtonPressed,
+            ]}
+            disabled={!normalizedNightStart}>
+            <Text style={styles.timeSaveButtonText}>Set</Text>
+          </Pressable>
         </View>
+        <Text style={styles.timePreview}>
+          Applies as {formatClockLabel(normalizedNightStart ?? settings.nightModeStart)}
+        </Text>
+
         <Text style={styles.smallLabel}>Ends</Text>
-        <View style={styles.timeGrid}>
-          {nightEndOptions.map((value) => (
-            <Pressable
-              key={value}
-              onPress={() => updateSettings({ nightModeEnd: value })}
-              style={[
-                styles.timeChip,
-                settings.nightModeEnd === value && styles.timeChipActive,
-              ]}>
-              <Text
-                style={[
-                  styles.timeChipText,
-                  settings.nightModeEnd === value && styles.timeChipTextActive,
-                ]}>
-                {formatClockLabel(value)}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={styles.timeEditorRow}>
+          <TextInput
+            value={formatTimeInput(nightEndInput)}
+            onChangeText={(value) => setNightEndInput(stripTimeDigits(value))}
+            onBlur={() => saveNightTime('nightModeEnd', nightEndInput)}
+            onSubmitEditing={() => saveNightTime('nightModeEnd', nightEndInput)}
+            placeholder="06:00"
+            placeholderTextColor="#A18F7A"
+            keyboardType="number-pad"
+            maxLength={5}
+            style={styles.timeInput}
+          />
+          <Pressable
+            onPress={() => saveNightTime('nightModeEnd', nightEndInput)}
+            style={({ pressed }) => [
+              styles.timeSaveButton,
+              !normalizedNightEnd && styles.timeSaveButtonDisabled,
+              pressed && normalizedNightEnd && styles.secondaryButtonPressed,
+            ]}
+            disabled={!normalizedNightEnd}>
+            <Text style={styles.timeSaveButtonText}>Set</Text>
+          </Pressable>
         </View>
+        <Text style={styles.timePreview}>
+          Applies as {formatClockLabel(normalizedNightEnd ?? settings.nightModeEnd)}
+        </Text>
       </View>
 
       <View style={styles.panel}>
@@ -427,26 +516,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     fontSize: 12,
   },
-  timeGrid: {
+  timeEditorRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
   },
-  timeChip: {
-    paddingVertical: 10,
+  timeInput: {
+    flex: 1,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 14,
     backgroundColor: '#F3E6D3',
-  },
-  timeChipActive: {
-    backgroundColor: '#D96B2B',
-  },
-  timeChipText: {
-    color: '#6A4A2E',
+    borderWidth: 1,
+    borderColor: '#E1D0BB',
+    color: '#1E1A16',
     fontWeight: '700',
+    fontSize: 16,
   },
-  timeChipTextActive: {
+  timeSaveButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: '#D96B2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeSaveButtonDisabled: {
+    backgroundColor: '#D5C5AF',
+  },
+  timeSaveButtonText: {
     color: '#FFF8EE',
+    fontWeight: '800',
+  },
+  timePreview: {
+    color: '#6C6358',
+    fontSize: 12,
   },
   resetButton: {
     paddingVertical: 18,

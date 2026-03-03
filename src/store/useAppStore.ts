@@ -41,6 +41,7 @@ const baseRuntimeState: AppRuntimeState = {
   manualMeetingModeUntil: null,
   snoozeUntil: null,
   nightModeOverride: true,
+  killSwitchEnabled: false,
 };
 
 interface AppStore extends AppRuntimeState {
@@ -58,6 +59,7 @@ interface AppStore extends AppRuntimeState {
   setManualMeetingMode: (enabled: boolean, until?: number | null) => void;
   setSnoozeUntil: (timestamp: number | null) => void;
   setNightModeOverride: (enabled: boolean) => void;
+  setKillSwitchEnabled: (enabled: boolean) => void;
   recordAlertTriggered: (durationMinutes: number) => void;
   recordAlertIgnored: () => void;
   recordActiveBreak: () => void;
@@ -121,6 +123,7 @@ export const useAppStore = create<AppStore>()(
         })),
       setSnoozeUntil: (timestamp) => set(() => ({ snoozeUntil: timestamp })),
       setNightModeOverride: (enabled) => set(() => ({ nightModeOverride: enabled })),
+      setKillSwitchEnabled: (enabled) => set(() => ({ killSwitchEnabled: enabled })),
       recordAlertTriggered: (durationMinutes) =>
         set((state) => {
           const summary = freshSummary(state.todaysSummary);
@@ -196,6 +199,7 @@ export const useAppStore = create<AppStore>()(
           preSnoozeRemainingMs: null,
           pendingWalkConfirmationUntil: null,
           nightModeOverride: true,
+          killSwitchEnabled: false,
         } as AppStore;
       },
       storage: createJSONStorage(() => AsyncStorage),
@@ -208,6 +212,7 @@ export const useAppStore = create<AppStore>()(
         manualMeetingModeUntil: state.manualMeetingModeUntil,
         snoozeUntil: state.snoozeUntil,
         nightModeOverride: state.nightModeOverride,
+        killSwitchEnabled: state.killSwitchEnabled,
         pausedCountdownRemainingMs: state.pausedCountdownRemainingMs,
         preSnoozeRemainingMs: state.preSnoozeRemainingMs,
         pendingWalkConfirmationUntil: state.pendingWalkConfirmationUntil,

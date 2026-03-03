@@ -1,15 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
 import CountdownRing from '../components/CountdownRing';
-import StatCard from '../components/StatCard';
 import StatusCard from '../components/StatusCard';
 import ToggleCard from '../components/ToggleCard';
 import { useAppStore } from '../store/useAppStore';
@@ -17,12 +15,13 @@ import {
   acknowledgeCurrentAlert,
   toggleSnoozeForMinutes,
   enableMeetingModeForHour,
-  manualResetTimer,
+  setKillSwitch,
   snoozeForMinutes,
 } from '../services/ActivityService';
 import { formatMinutes, secondsRemaining } from '../utils/timeUtils';
 
 const suppressionLabelMap = {
+  KILL_SWITCH: 'Kill switch is on. All reminders are paused.',
   MEETING_MODE: 'Meeting mode is active',
   CALENDAR_BUSY: 'Calendar busy suppression is active',
   NIGHT_RANGE: 'Night mode is suppressing reminders',
@@ -44,6 +43,7 @@ export default function HomeScreen() {
   const manualMeetingModeUntil = useAppStore((state) => state.manualMeetingModeUntil);
   const snoozeUntil = useAppStore((state) => state.snoozeUntil);
   const nightModeOverride = useAppStore((state) => state.nightModeOverride);
+  const killSwitchEnabled = useAppStore((state) => state.killSwitchEnabled);
   const lastSuppressionReason = useAppStore((state) => state.lastSuppressionReason);
   const settings = useAppStore((state) => state.settings);
   const todaysSummary = useAppStore((state) => state.todaysSummary);
@@ -76,37 +76,19 @@ export default function HomeScreen() {
   const suppressionMessage = lastSuppressionReason
     ? suppressionLabelMap[lastSuppressionReason]
     : null;
-  const miniSummary = useMemo(
-    () => [
-      {
-        label: 'Alerts',
-        value: String(todaysSummary.alertsTriggered),
-        hint: 'Triggered today',
-      },
-      {
-        label: 'Breaks',
-        value: String(todaysSummary.activeBreaks),
-        hint: 'Active resets',
-      },
-      {
-        label: 'Sitting',
-        value: formatMinutes(todaysSummary.totalSittingMinutes),
-        hint: 'Accumulated',
-      },
-    ],
-    [todaysSummary]
-  );
+  const todaySittingLabel = formatMinutes(todaysSummary.totalSittingMinutes);
 
   return (
-    <ScrollView
+    <View
       style={styles.screen}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingBottom: tabBarHeight + 18,
-        },
-      ]}
-      showsVerticalScrollIndicator={false}>
+    >
+      <View
+        style={[
+          styles.content,
+          {
+            paddingBottom: Math.max(12, tabBarHeight - 4),
+          },
+        ]}>
       {alarmActive ? (
         <View style={styles.alarmPanel}>
           <View style={styles.alarmHeader}>
@@ -146,9 +128,6 @@ export default function HomeScreen() {
         <View style={styles.heroCopy}>
           <Text style={styles.eyebrow}>SitAlert</Text>
           <Text style={styles.title}>Break long sitting streaks before they become your baseline.</Text>
-          <Text style={styles.subtitle}>
-            Sensor tracking stays active in the background and only interrupts when your suppression rules allow it.
-          </Text>
         </View>
         <CountdownRing progress={ringProgress} secondsRemaining={remainingSeconds} />
       </View>
@@ -158,6 +137,11 @@ export default function HomeScreen() {
         lastMovementAt={lastMovementAt}
         confidence={latestConfidence}
       />
+
+      <View style={styles.todayStrip}>
+        <Text style={styles.todayStripLabel}>Today&apos;s sitting</Text>
+        <Text style={styles.todayStripValue}>{todaySittingLabel}</Text>
+      </View>
 
       {timerIsPaused ? (
         <View style={styles.banner}>
@@ -212,28 +196,50 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      <View style={styles.summarySection}>
-        <Text style={styles.sectionTitle}>Today&apos;s snapshot</Text>
-        <View style={styles.summaryRow}>
-          {miniSummary.map((card) => (
-            <StatCard
-              key={card.label}
-              label={card.label}
-              value={card.value}
-              hint={card.hint}
-            />
-          ))}
+      <View style={styles.dayAnalytics}>
+        <Text style={styles.dayAnalyticsTitle}>Today</Text>
+        <View style={styles.dayAnalyticsRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Alerts</Text>
+            <Text style={styles.metricValue}>{todaysSummary.alertsTriggered}</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Ignored</Text>
+            <Text style={styles.metricValue}>{todaysSummary.alertsIgnored}</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Walk breaks</Text>
+            <Text style={styles.metricValue}>{todaysSummary.activeBreaks}</Text>
+          </View>
+          </View>
         </View>
       </View>
 
       <Pressable
         onPress={() => {
-          void manualResetTimer();
+          void setKillSwitch(!killSwitchEnabled);
         }}
-        style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}>
-        <Text style={styles.primaryButtonText}>I&apos;m Moving!</Text>
+        style={({ pressed }) => [
+          styles.killSwitchButton,
+          killSwitchEnabled && styles.killSwitchButtonActive,
+          pressed && styles.killSwitchButtonPressed,
+        ]}>
+        <Text
+          style={[
+            styles.killSwitchLabel,
+            killSwitchEnabled && styles.killSwitchLabelActive,
+          ]}>
+          {killSwitchEnabled ? 'Kill Switch On' : 'Kill Switch'}
+        </Text>
+        <Text
+          style={[
+            styles.killSwitchCaption,
+            killSwitchEnabled && styles.killSwitchCaptionActive,
+          ]}>
+          {killSwitchEnabled ? 'All reminders are paused' : 'Turn off all reminders'}
+        </Text>
       </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -243,20 +249,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6EFE3',
   },
   content: {
+    flex: 1,
     padding: 20,
-    gap: 14,
+    gap: 8,
   },
   hero: {
-    padding: 16,
-    borderRadius: 28,
+    padding: 14,
+    borderRadius: 22,
     backgroundColor: '#1F3A2F',
     flexDirection: 'row',
-    gap: 14,
+    gap: 10,
     alignItems: 'center',
   },
   heroCopy: {
     flex: 1,
-    gap: 8,
+    gap: 4,
   },
   eyebrow: {
     color: '#D7F0E1',
@@ -267,24 +274,74 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#FFF8EE',
-    fontSize: 21,
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 27,
+    lineHeight: 22,
   },
-  subtitle: {
-    color: 'rgba(255, 248, 238, 0.75)',
-    fontSize: 13,
-    lineHeight: 18,
+  todayStrip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#FFF8EE',
+    borderWidth: 1,
+    borderColor: '#E8D9C6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  todayStripLabel: {
+    color: '#7B6A57',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  todayStripValue: {
+    color: '#1E1A16',
+    fontSize: 18,
+    fontWeight: '800',
   },
   toggleGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
+  },
+  killSwitchButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: '#FFF8EE',
+    borderWidth: 1,
+    borderColor: '#E8D9C6',
+    gap: 2,
+  },
+  killSwitchButtonActive: {
+    backgroundColor: '#D96B2B',
+    borderColor: '#D96B2B',
+  },
+  killSwitchButtonPressed: {
+    opacity: 0.92,
+  },
+  killSwitchLabel: {
+    color: '#1E1A16',
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  killSwitchLabelActive: {
+    color: '#FFF8EE',
+  },
+  killSwitchCaption: {
+    color: '#7B6A57',
+    fontSize: 11,
+  },
+  killSwitchCaptionActive: {
+    color: 'rgba(255, 248, 238, 0.82)',
   },
   banner: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
     backgroundColor: '#F4DEC8',
     borderWidth: 1,
     borderColor: '#E4C4A4',
@@ -294,32 +351,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   alarmPanel: {
-    padding: 14,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 16,
     backgroundColor: '#5A1515',
-    gap: 10,
+    gap: 8,
   },
   alarmHeader: {
     gap: 4,
   },
   alarmTitle: {
     color: '#FFF4EE',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   alarmCopy: {
     color: 'rgba(255, 244, 238, 0.84)',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
   },
   alarmActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   alarmButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -340,32 +397,45 @@ const styles = StyleSheet.create({
     color: '#4B1B13',
     fontWeight: '800',
   },
-  summarySection: {
-    gap: 12,
+  dayAnalytics: {
+    marginTop: 'auto',
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: '#FFF8EE',
+    borderWidth: 1,
+    borderColor: '#E8D9C6',
+    gap: 10,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  dayAnalyticsTitle: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#1E1A16',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  summaryRow: {
+  dayAnalyticsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
-  primaryButton: {
-    paddingVertical: 16,
-    borderRadius: 20,
+  metricCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: '#F6EFE3',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#D96B2B',
+    gap: 4,
   },
-  primaryButtonPressed: {
-    opacity: 0.92,
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7B6A57',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
   },
-  primaryButtonText: {
-    color: '#FFF8EE',
+  metricValue: {
     fontSize: 18,
     fontWeight: '800',
+    color: '#1E1A16',
   },
 });

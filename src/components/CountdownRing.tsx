@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontSize: 13,
-    color: '#6B6256',
+    color: 'rgba(255, 248, 238, 0.78)',
     textTransform: 'uppercase',
     letterSpacing: 1.1,
   },
@@ -79,6 +79,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 28,
     fontWeight: '700',
-    color: '#1E1A16',
+    color: '#FFF8EE',
   },
 });
