@@ -28,6 +28,10 @@ type BarBucket = {
   alerts: number;
 };
 
+type ActivityEventMetadata = {
+  continuousDurationMinutes?: number;
+};
+
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 const getDatabase = async () => {
@@ -123,6 +127,26 @@ const createBarBuckets = (): BarBucket[] =>
       alerts: 0,
     };
   });
+
+const getContinuousDurationMinutes = (row: ActivityEventRow) => {
+  if (!row.metadata) {
+    return row.duration_minutes;
+  }
+
+  try {
+    const metadata = JSON.parse(row.metadata) as ActivityEventMetadata;
+    if (
+      typeof metadata.continuousDurationMinutes === 'number' &&
+      Number.isFinite(metadata.continuousDurationMinutes)
+    ) {
+      return metadata.continuousDurationMinutes;
+    }
+  } catch {
+    return row.duration_minutes;
+  }
+
+  return row.duration_minutes;
+};
 
 const calculateStreak = (bars: BarBucket[]) => {
   let streak = 0;
@@ -222,7 +246,7 @@ export const getAnalyticsSnapshot = async (
     currentStreakDays: calculateStreak(bars),
     longestStreakMinutes: Math.max(
       liveSummary?.dayKey === todayKey ? liveSummary.longestInactivityMinutes : 0,
-      ...alertRows.map((row) => row.duration_minutes),
+      ...alertRows.map((row) => getContinuousDurationMinutes(row)),
       0
     ),
     bars,

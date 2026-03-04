@@ -60,7 +60,10 @@ interface AppStore extends AppRuntimeState {
   setSnoozeUntil: (timestamp: number | null) => void;
   setNightModeOverride: (enabled: boolean) => void;
   setKillSwitchEnabled: (enabled: boolean) => void;
-  recordAlertTriggered: (durationMinutes: number) => void;
+  recordAlertTriggered: (
+    durationMinutes: number,
+    longestDurationMinutes?: number
+  ) => void;
   recordAlertIgnored: () => void;
   recordActiveBreak: () => void;
   hydrateSummary: (summary: Partial<DailySummary>) => void;
@@ -124,7 +127,7 @@ export const useAppStore = create<AppStore>()(
       setSnoozeUntil: (timestamp) => set(() => ({ snoozeUntil: timestamp })),
       setNightModeOverride: (enabled) => set(() => ({ nightModeOverride: enabled })),
       setKillSwitchEnabled: (enabled) => set(() => ({ killSwitchEnabled: enabled })),
-      recordAlertTriggered: (durationMinutes) =>
+      recordAlertTriggered: (durationMinutes, longestDurationMinutes = durationMinutes) =>
         set((state) => {
           const summary = freshSummary(state.todaysSummary);
 
@@ -135,7 +138,7 @@ export const useAppStore = create<AppStore>()(
               totalSittingMinutes: summary.totalSittingMinutes + durationMinutes,
               longestInactivityMinutes: Math.max(
                 summary.longestInactivityMinutes,
-                durationMinutes
+                longestDurationMinutes
               ),
             },
             lastAlertAt: Date.now(),

@@ -565,7 +565,14 @@ export const evaluateInactivity = async () => {
 
   try {
     const now = Date.now();
-    const durationMinutes = minutesBetween(state.stillSince ?? state.countdownStartedAt ?? now, now);
+    const incrementalDurationMinutes = minutesBetween(
+      state.countdownStartedAt ?? state.stillSince ?? now,
+      now
+    );
+    const continuousDurationMinutes = minutesBetween(
+      state.stillSince ?? state.countdownStartedAt ?? now,
+      now
+    );
     const suppressionReason = await resolveSuppressionReason(now);
 
     if (suppressionReason) {
@@ -579,21 +586,31 @@ export const evaluateInactivity = async () => {
         lastSuppressionReason: suppressionReason,
       });
       await recordNotificationEvent('SUPPRESSED', suppressionReason, {
-        durationMinutes,
+        durationMinutes: continuousDurationMinutes,
+        incrementalDurationMinutes,
       });
       await persistRuntime();
       return;
     }
 
-    await sendInactivityNotification(durationMinutes);
+    await sendInactivityNotification(continuousDurationMinutes);
     await startAlarmLoop();
-    await recordActivityEvent('ALERT_TRIGGERED', durationMinutes, state.currentActivityState, {
-      durationMinutes,
-    });
+    await recordActivityEvent(
+      'ALERT_TRIGGERED',
+      incrementalDurationMinutes,
+      state.currentActivityState,
+      {
+        durationMinutes: continuousDurationMinutes,
+        incrementalDurationMinutes,
+        continuousDurationMinutes,
+      }
+    );
     await recordNotificationEvent('TRIGGERED', null, {
-      durationMinutes,
+      durationMinutes: continuousDurationMinutes,
+      incrementalDurationMinutes,
+      continuousDurationMinutes,
     });
-    state.recordAlertTriggered(durationMinutes);
+    state.recordAlertTriggered(incrementalDurationMinutes, continuousDurationMinutes);
     state.patchRuntime({
       pausedCountdownRemainingMs: null,
       preSnoozeRemainingMs: null,
